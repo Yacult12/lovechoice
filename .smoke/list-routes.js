@@ -2,7 +2,7 @@
  * 枚举 Express 实际注册的所有路由
  *   node list-routes.js
  */
-const app = require('c:/Users/何树吉/Desktop/love/server/src/app.js').createApp();
+const app = require('../server/src/app.js').createApp();
 
 const out = [];
 

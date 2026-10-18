@@ -8,7 +8,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve('c:/Users/何树吉/Desktop/love');
+// 从本文件位置上溯两级到仓库根，避免硬编码本机绝对路径
+// （GitHub Actions 跑在 Linux 上，写死 C:\Users\… 会直接找不到文件）
+const ROOT = path.resolve(__dirname, '..');
 const WF = '.github/workflows/ci.yml';
 
 let pass = 0, fail = 0, warn = 0;

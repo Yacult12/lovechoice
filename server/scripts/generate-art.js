@@ -1,4 +1,4 @@
-﻿'use strict';
+'use strict';
 
 /**
  * 美术资源生成器：纯 Node 手写 SVG，输出到 client/assets/img/

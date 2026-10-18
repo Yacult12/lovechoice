@@ -5,7 +5,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve('c:/Users/何树吉/Desktop/love');
+// 项目根目录：从本文件位置向上两级（.smoke/verify-docker.js → 仓库根）
+// 不用硬编码绝对路径 —— 否则在 Linux CI 上会去找 C:\Users\...
+const ROOT = path.resolve(__dirname, '..');
 
 let pass = 0, fail = 0, warn = 0;
 function check(name, cond, extra) {

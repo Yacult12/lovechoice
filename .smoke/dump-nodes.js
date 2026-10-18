@@ -1,4 +1,4 @@
-const mysql = require('c:/Users/何树吉/Desktop/love/server/node_modules/mysql2/promise');
+const mysql = require('mysql2/promise');
 
 (async () => {
   const c = await mysql.createConnection({

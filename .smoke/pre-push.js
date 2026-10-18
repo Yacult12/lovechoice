@@ -12,7 +12,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const ROOT = path.resolve('c:/Users/何树吉/Desktop/love');
+const ROOT = path.resolve(__dirname, '..');
 
 let pass = 0, fail = 0, warn = 0;
 function check(name, cond, extra) {

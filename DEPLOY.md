@@ -1,4 +1,4 @@
-﻿# Docker 部署
+# Docker 部署
 
 三个容器：mysql + backend(Node API) + frontend(nginx)。
 浏览器只看到一个端口，前后端同源，因此没有 CORS 问题。

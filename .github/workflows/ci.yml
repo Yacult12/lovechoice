@@ -59,6 +59,26 @@ jobs:
           find client/assets/js .smoke -name '*.js' -print0 \
             | xargs -0 -n1 node --check
 
+      # ⚠️ 历史上踩过的坑：Windows 下带 BOM 的 JS 能正常跑，
+      # 但 Linux/Node 上会直接抛 SyntaxError。
+      # 症状是「本地全过、CI 秒挂」，极难排查，所以在流水线里显式拦截。
+      - name: 检查 UTF-8 BOM
+        run: |
+          failed=0
+          while IFS= read -r -d '' f; do
+            if [ "$(head -c 3 "$f" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ]; then
+              echo "❌ $f 含 UTF-8 BOM（Linux 上会解析失败）"
+              failed=1
+            fi
+          done < <(find . -path ./node_modules -prune -o \
+                       \( -name '*.js' -o -name '*.json' -o -name '*.md' \
+                          -o -name '*.yml' -o -name '*.sql' \) -print0)
+          if [ "$failed" -ne 0 ]; then
+            echo "请用无 BOM 的 UTF-8 重新保存上述文件"
+            exit 1
+          fi
+          echo "✅ 无 BOM 文件"
+
       - name: 校验 .env 未被提交
         run: |
           if git ls-files --error-unmatch server/.env 2>/dev/null; then

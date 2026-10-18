@@ -5,7 +5,7 @@
  * 为什么需要它：仓库里从来没有 schema.sql，
  * 而 Docker 初始化容器必须有建表语句才能跑起来。
  */
-const mysql = require('c:/Users/何树吉/Desktop/love/server/node_modules/mysql2/promise');
+const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
 
