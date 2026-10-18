@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 780" width="460" height="780" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="hairG" x1="0" y1="0" x2="0.3" y2="1">
+  <stop offset="0%" stop-color="#414960"/>
+  <stop offset="100%" stop-color="#2b3040"/>
+</linearGradient>
+<linearGradient id="skinG" x1="0.2" y1="0" x2="0.4" y2="1">
+  <stop offset="0%" stop-color="#e8cdb6"/>
+  <stop offset="100%" stop-color="#c8a488"/>
+</linearGradient>
+<linearGradient id="coatG" x1="0.1" y1="0" x2="0.3" y2="1">
+  <stop offset="0%" stop-color="#4a5a72"/>
+  <stop offset="100%" stop-color="#333f52"/>
+</linearGradient>
+<radialGradient id="aura" cx="0.5" cy="0.42" r="0.5">
+  <stop offset="0%" stop-color="#5b8cff" stop-opacity="0.16"/>
+  <stop offset="100%" stop-color="#5b8cff" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="72%" stop-color="#0b0a10" stop-opacity="0"/>
+  <stop offset="100%" stop-color="#0b0a10" stop-opacity="1"/>
+</linearGradient></defs>
+<!-- 光晕（很弱） -->
+<ellipse cx="230" cy="330" rx="210" ry="270" fill="url(#aura)"/>
+<!-- ===== 短发（利落，无挑染）===== -->
+<path d="M130 300 Q130 168 230 164 Q330 168 330 300
+         Q326 262 316 244 Q300 268 268 252
+         Q246 214 208 244 Q176 270 152 250
+         Q138 268 130 300 Z" fill="url(#hairG)"/>
+<!-- 鬓角 -->
+<path d="M132 288 Q128 330 138 366 Q132 330 140 296 Z" fill="url(#hairG)"/>
+<path d="M328 288 Q332 330 322 366 Q328 330 320 296 Z" fill="url(#hairG)"/>
+<!-- ===== 身体（宽肩、素色 T 恤）===== -->
+<path d="M84 780 Q92 560 160 512 L300 512 Q368 560 376 780 Z" fill="url(#coatG)"/>
+<!-- 简单圆领，无装饰 -->
+<path d="M198 512 Q230 542 262 512 L272 524 Q230 558 188 524 Z" fill="#333f52"/>
+<path d="M198 512 Q230 542 262 512 L266 518 Q230 548 194 518 Z" fill="#000" opacity="0.14"/>
+<!-- ===== 脖子（略粗）===== -->
+<path d="M204 438 L204 500 Q204 514 230 514 Q256 514 256 500 L256 438 Z" fill="url(#skinG)"/>
+<path d="M204 438 Q230 466 256 438 L256 456 Q230 480 204 456 Z" fill="#c8a488" opacity="0.45"/>
+<!-- ===== 脸（方一点）===== -->
+<ellipse cx="230" cy="316" rx="96" ry="114" fill="url(#skinG)"/>
+<path d="M138 322 L138 356 M322 322 L322 356" stroke="#c8a488" stroke-width="1.4" opacity="0.3" fill="none"/>
+<!-- 耳 -->
+<ellipse cx="136" cy="322" rx="11" ry="19" fill="#c8a488" opacity="0.8"/>
+<ellipse cx="324" cy="322" rx="11" ry="19" fill="#c8a488" opacity="0.8"/>
+<!-- ===== 眉毛（粗、直、淡）===== -->
+<path d="M148 290 L184 286" stroke="#2b3040" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+<path d="M276 286 L312 290" stroke="#2b3040" stroke-width="5" stroke-linecap="round" opacity="0.6"/>
+<!-- ===== 眼（单眼皮细线）===== -->
+<path d="M150 322 Q166 314 182 322" fill="none" stroke="#333c4e" stroke-width="3" stroke-linecap="round"/>
+<path d="M242 322 Q258 314 274 322" fill="none" stroke="#333c4e" stroke-width="3" stroke-linecap="round"/>
+<circle cx="166" cy="321" r="4.5" fill="#333c4e"/>
+<circle cx="258" cy="321" r="4.5" fill="#333c4e"/>
+<!-- ===== 鼻（普通）===== -->
+<path d="M230 334 L226 350 L234 350" fill="none" stroke="#c8a488" stroke-width="2.4" stroke-linecap="round" opacity="0.5"/>
+<!-- ===== 嘴 ===== -->
+<path d="M205 376 L227 376" fill="none" stroke="#c8a488" stroke-width="2.6" stroke-linecap="round"/>
+<!-- ===== 无腮红、无发饰、无光效 ===== -->
+<!-- ===== 底部淡出 ===== -->
+<rect x="70" y="592" width="320" height="188" fill="url(#fade)"/>
+</svg>

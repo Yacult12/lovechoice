@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>美术资源预览 · 他们的故事</title>
+<style>
+  body { margin:0; padding:24px; background:#0b0a10; color:#f2effa;
+         font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; }
+  h1 { font-size:22px; }
+  h2 { font-size:18px; margin:26px 0 12px; color:#b78cff; }
+  h3 { font-size:14px; margin:18px 0 8px; }
+  .bg-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:14px; }
+  .bg-grid figure { margin:0; }
+  .bg-grid img { width:100%; aspect-ratio:16/9; object-fit:cover;
+                 border-radius:12px; border:1px solid rgba(255,255,255,.14); display:block; }
+  .bg-grid figcaption { font-size:12px; color:#a9a3bd; margin-top:6px; }
+  .av-row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end;
+            background:linear-gradient(180deg,#1a1828,#0b0a10); padding:20px; border-radius:12px; }
+  .av-row figure { margin:0; text-align:center; }
+  .av-row img { height:300px; display:block; filter:drop-shadow(0 12px 24px rgba(0,0,0,.5)); }
+  .av-row figcaption { font-size:11px; color:#a9a3bd; margin-top:8px; }
+
+  /* 形象演化时间轴 */
+  .timeline { display:grid; grid-template-columns:repeat(5,1fr); gap:12px;
+              background:linear-gradient(180deg,#171528,#0b0a10); padding:22px; border-radius:14px; }
+  .timeline figure { margin:0; text-align:center; }
+  .timeline img { width:100%; display:block; filter:drop-shadow(0 10px 20px rgba(0,0,0,.5)); }
+  .timeline .ch { font-size:11px; letter-spacing:2px; color:#b78cff; margin-bottom:6px; }
+  .timeline .desc { font-size:11px; color:#a9a3bd; margin-top:8px; line-height:1.6; }
+  .timeline .hex { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10px; color:#6f6a85; margin-top:3px; }
+
+  /* 情绪变体 */
+  .moods { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+  .moods figure { margin:0; text-align:center; }
+  .moods img { width:100%; display:block; }
+  .moods figcaption { font-size:11px; color:#a9a3bd; margin-top:6px; }
+
+  .stage-demo { position:relative; height:420px; border-radius:14px; overflow:hidden;
+                border:1px solid rgba(255,255,255,.14); margin-bottom:14px; }
+  .stage-demo .scene-bg { position:absolute; inset:0; background-size:cover; background-position:center; }
+  .stage-demo .scene-bg::after { content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg,rgba(11,10,16,.35),rgba(11,10,16,.55) 55%,rgba(11,10,16,.94)); }
+  .stage-demo .portrait { position:absolute; inset:0; display:flex; align-items:flex-end;
+                          justify-content:center; padding-bottom:70px; }
+  .stage-demo .portrait img { max-height:100%; filter:drop-shadow(0 24px 46px rgba(0,0,0,.55)); }
+  .stage-demo .dlg { position:absolute; left:16px; right:16px; bottom:14px; z-index:5;
+                     background:rgba(10,9,16,.82); border:1px solid rgba(255,255,255,.12);
+                     border-radius:20px; padding:16px 20px; backdrop-filter:blur(12px); }
+  .stage-demo .dlg .sp { display:inline-block; margin-bottom:6px; padding:2px 12px; border-radius:999px;
+                          font-size:12px; font-weight:700; background:rgba(255,123,168,.18);
+                          color:#ffb3cd; border:1px solid rgba(255,123,168,.4); }
+  .stage-demo .dlg .tx { font-size:15px; line-height:1.8; }
+  .cmp { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+</style>
+</head>
+<body>
+  <h1>🎨 美术资源预览 · 他们的故事</h1>
+
+  <h2>她 · 形象随剧情推进演化（5 章）</h2>
+  <div class="timeline">
+    <figure>
+      <div class="ch">CHAPTER 01</div>
+      <img src="../client/assets/img/avatar/female-c1-smile.svg" alt="初见">
+      <div class="desc">素净白衬衫<br>低调发夹</div>
+      <div class="hex">#4a3b42</div>
+    </figure>
+    <figure>
+      <div class="ch">CHAPTER 02</div>
+      <img src="../client/assets/img/avatar/female-c2-smile.svg" alt="靠近">
+      <div class="desc">奶油开衫<br>针织纹理</div>
+      <div class="hex">#55394a</div>
+    </figure>
+    <figure>
+      <div class="ch">CHAPTER 03</div>
+      <img src="../client/assets/img/avatar/female-c3-smile.svg" alt="传闻">
+      <div class="desc">精心打扮<br>亮片立领</div>
+      <div class="hex">#6b3f52</div>
+    </figure>
+    <figure>
+      <div class="ch">CHAPTER 04</div>
+      <img src="../client/assets/img/avatar/female-c4-soft.svg" alt="雨夜">
+      <div class="desc">男式外套<br>湿发狼狈</div>
+      <div class="hex">#3a2e35</div>
+    </figure>
+    <figure>
+      <div class="ch">CHAPTER 05</div>
+      <img src="../client/assets/img/avatar/female-c5-smile.svg" alt="走廊">
+      <div class="desc">盛装连衣裙<br>方领亮片</div>
+      <div class="hex">#7a4358</div>
+    </figure>
+  </div>
+
+  <h2>他 · 形象固定，只有表情变（朴素反差）</h2>
+  <div class="av-row">
+    <figure><img src="../client/assets/img/avatar/male-soft.svg"><figcaption>soft</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/male-away.svg"><figcaption>away</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/male-down.svg"><figcaption>down</figcaption></figure>
+  </div>
+
+  <h2>她 · 每章的四种情绪（按好感自动切换）</h2>
+  <h3 style="color:#6f6a85">第 1 章 · 初见（素净）</h3>
+  <div class="moods">
+    <figure><img src="../client/assets/img/avatar/female-c1-smile.svg"><figcaption>smile 高</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/female-c1-soft.svg"><figcaption>soft 中</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/female-c1-away.svg"><figcaption>away 中</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/female-c1-down.svg"><figcaption>down 低</figcaption></figure>
+  </div>
+  <h3 style="color:#6f6a85">第 4 章 · 雨夜（狼狈）</h3>
+  <div class="moods">
+    <figure><img src="../client/assets/img/avatar/female-c4-smile.svg"><figcaption>smile 高</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/female-c4-soft.svg"><figcaption>soft 中</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/female-c4-away.svg"><figcaption>away 中</figcaption></figure>
+    <figure><img src="../client/assets/img/avatar/female-c4-down.svg"><figcaption>down 低</figcaption></figure>
+  </div>
+
+  <h2>场景合成 · 第 1 章 vs 第 5 章</h2>
+  <div class="cmp">
+    <div class="stage-demo">
+      <div class="scene-bg" style="background-image:url('../client/assets/img/bg/library.svg')"></div>
+      <div class="portrait"><img src="../client/assets/img/avatar/female-c1-smile.svg"></div>
+      <div class="dlg">
+        <span class="sp">她</span>
+        <div class="tx">「其实……我是故意的。」<br><span class="faint" style="font-size:12px;color:#6f6a85">第一章 · 初见 · 素净白衬衫</span></div>
+      </div>
+    </div>
+    <div class="stage-demo">
+      <div class="scene-bg" style="background-image:url('../client/assets/img/bg/corridor.svg')"></div>
+      <div class="portrait"><img src="../client/assets/img/avatar/female-c5-smile.svg"></div>
+      <div class="dlg">
+        <span class="sp">她</span>
+        <div class="tx">「这次我先说 —— 我一直在等你开口。」<br><span class="faint" style="font-size:12px;color:#6f6a85">第五章 · 走廊 · 盛装连衣裙</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-demo">
+    <div class="scene-bg" style="background-image:url('../client/assets/img/bg/rain.svg')"></div>
+    <div class="portrait"><img src="../client/assets/img/avatar/female-c4-soft.svg"></div>
+    <div class="dlg">
+      <span class="sp">她</span>
+      <div class="tx">「你把伞给我，你自己淋雨跑掉了。」<br><span class="faint" style="font-size:12px;color:#6f6a85">第四章 · 雨夜 · 湿发 + 男式外套</span></div>
+    </div>
+  </div>
+
+  <h2>背景图（8 张 · 960×540）</h2>
+  <div class="bg-grid">
+    <figure><img src="../client/assets/img/bg/library.svg"><figcaption>library 图书馆</figcaption></figure>
+    <figure><img src="../client/assets/img/bg/classroom.svg"><figcaption>classroom 教室</figcaption></figure>
+    <figure><img src="../client/assets/img/bg/street.svg"><figcaption>street 街道</figcaption></figure>
+    <figure><img src="../client/assets/img/bg/dorm.svg"><figcaption>dorm 宿舍</figcaption></figure>
+    <figure><img src="../client/assets/img/bg/corridor.svg"><figcaption>corridor 走廊</figcaption></figure>
+    <figure><img src="../client/assets/img/bg/cafe.svg"><figcaption>cafe 咖啡馆</figcaption></figure>
+    <figure><img src="../client/assets/img/bg/rooftop.svg"><figcaption>rooftop 天台</figcaption></figure>
+    <figure><img src="../client/assets/img/bg/rain.svg"><figcaption>rain 雨夜</figcaption></figure>
+  </div>
+</body>
+</html>

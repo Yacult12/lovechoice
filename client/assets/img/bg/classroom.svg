@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0.4" y2="1">
+  <stop offset="0%" stop-color="#33304a"/>
+  <stop offset="55%" stop-color="#221f33"/>
+  <stop offset="100%" stop-color="#141220"/>
+</linearGradient>
+<radialGradient id="skyglow" cx="0.72" cy="0.22" r="0.7">
+  <stop offset="0%" stop-color="#ffb26b" stop-opacity="0.55"/>
+  <stop offset="100%" stop-color="#ffb26b" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="desk" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#4a4235" stop-opacity="0.9"/>
+  <stop offset="100%" stop-color="#241f18" stop-opacity="1"/>
+</linearGradient>
+<linearGradient id="win" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#ffd9a0" stop-opacity="0.5"/>
+  <stop offset="100%" stop-color="#ffb26b" stop-opacity="0.16"/>
+</linearGradient>
+<linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#0b0a10" stop-opacity="0.55"/>
+  <stop offset="38%" stop-color="#0b0a10" stop-opacity="0.12"/>
+  <stop offset="62%" stop-color="#0b0a10" stop-opacity="0.30"/>
+  <stop offset="100%" stop-color="#0b0a10" stop-opacity="0.90"/>
+</linearGradient></defs>
+<rect width="960" height="540" fill="url(#sky)"/>
+<rect width="960" height="540" fill="url(#skyglow)"/>
+<!-- 黑板 -->
+<rect x="44" y="48" width="400" height="190" rx="6" fill="#1e2a26" opacity="0.9"/>
+<rect x="44" y="48" width="400" height="190" rx="6" fill="none" stroke="#8a6a4a" stroke-width="4" opacity="0.5"/>
+<rect x="60" y="78" width="62" height="3" rx="1.5" fill="#d8e0f0" opacity="0.20"/><rect x="150" y="78" width="86" height="3" rx="1.5" fill="#d8e0f0" opacity="0.25"/><rect x="271" y="78" width="63" height="3" rx="1.5" fill="#d8e0f0" opacity="0.25"/><rect x="353" y="78" width="121" height="3" rx="1.5" fill="#d8e0f0" opacity="0.18"/><rect x="60" y="118" width="47" height="3" rx="1.5" fill="#d8e0f0" opacity="0.26"/><rect x="127" y="118" width="61" height="3" rx="1.5" fill="#d8e0f0" opacity="0.18"/><rect x="219" y="118" width="62" height="3" rx="1.5" fill="#d8e0f0" opacity="0.15"/><rect x="305" y="118" width="83" height="3" rx="1.5" fill="#d8e0f0" opacity="0.27"/><rect x="60" y="158" width="104" height="3" rx="1.5" fill="#d8e0f0" opacity="0.21"/><rect x="197" y="158" width="62" height="3" rx="1.5" fill="#d8e0f0" opacity="0.15"/><rect x="281" y="158" width="117" height="3" rx="1.5" fill="#d8e0f0" opacity="0.23"/>
+<!-- 窗 -->
+<rect x="640" y="52" width="280" height="180" rx="6" fill="url(#win)"/>
+<rect x="640" y="52" width="280" height="180" rx="6" fill="none" stroke="#3a4258" stroke-width="5" opacity="0.7"/>
+<rect x="776" y="52" width="5" height="180" fill="#3a4258" opacity="0.7"/>
+<rect x="640" y="140" width="280" height="5" fill="#3a4258" opacity="0.7"/>
+<!-- 地板 -->
+<rect x="0" y="282" width="960" height="258" fill="url(#desk)"/>
+<!-- 课桌 -->
+<rect x="40" y="300" width="180" height="9" rx="3" fill="#4a4235" opacity="0.75"/>
+<rect x="240" y="300" width="180" height="9" rx="3" fill="#4a4235" opacity="0.75"/>
+<rect x="440" y="300" width="180" height="9" rx="3" fill="#4a4235" opacity="0.75"/>
+<rect x="640" y="300" width="180" height="9" rx="3" fill="#4a4235" opacity="0.75"/><rect x="80" y="368" width="180" height="9" rx="3" fill="#4a4235" opacity="0.63"/>
+<rect x="280" y="368" width="180" height="9" rx="3" fill="#4a4235" opacity="0.63"/>
+<rect x="480" y="368" width="180" height="9" rx="3" fill="#4a4235" opacity="0.63"/>
+<rect x="680" y="368" width="180" height="9" rx="3" fill="#4a4235" opacity="0.63"/><rect x="120" y="436" width="180" height="9" rx="3" fill="#4a4235" opacity="0.51"/>
+<rect x="320" y="436" width="180" height="9" rx="3" fill="#4a4235" opacity="0.51"/>
+<rect x="520" y="436" width="180" height="9" rx="3" fill="#4a4235" opacity="0.51"/>
+<rect x="720" y="436" width="180" height="9" rx="3" fill="#4a4235" opacity="0.51"/>
+<!-- 窗外光斑 -->
+<path d="M700 232 L900 232 L960 320 L640 320 Z" fill="#ffd9a0" opacity="0.08"/>
+<rect width="960" height="540" fill="url(#vg)"/>
+</svg>
