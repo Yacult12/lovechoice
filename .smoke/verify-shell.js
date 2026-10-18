@@ -115,6 +115,27 @@ check('语法检查也排除了 node_modules',
   /\.smoke -type d -name node_modules -prune/.test(yml));
 check('失败提示给出了可执行的修复命令', /fix-encoding\.js/.test(yml));
 
+// ---------- 5. Node 版本约束 ----------
+console.log('\n[5] Node 版本');
+const ciYaml = fs.readFileSync(path.join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+const nv = /NODE_VERSION:\s*'?([\d.]+)'?/.exec(ciYaml);
+check('ci.yml 声明了 Node 版本', !!nv, '未找到 NODE_VERSION');
+if (nv) {
+  const ver = nv[1];
+  const minor = parseFloat(ver);
+  check('Node 版本 >= 22.15（undici@8 的 zstd 要求）',
+    minor >= 22.15,
+    `当前 ${ver} —— 实测 22.14 会在加载 jsdom 时抛 ` +
+    `"Cannot read properties of undefined (reading 'bind')"`);
+  check('Node 版本已精确到小数位（不能只写 22）',
+    /\d+\.\d+/.test(ver), `写成 '22' 会拉到 22.14 而非 22.20`);
+}
+check('流水线内有 zstd 版本断言',
+  /createZstdDecompress/.test(ciYaml),
+  '缺这道断言，下次依赖升级又会把 CI 弄挂');
+check('断言失败时给出了修复指引',
+  /22\.15/.test(ciYaml) && /22\.20/.test(ciYaml));
+
 console.log('\n' + '='.repeat(50));
 console.log(fail === 0
   ? `  全部通过 ${pass} 项 ✅ shell 语义正确`

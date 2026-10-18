@@ -25,7 +25,16 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: '20'
+  # 必须精确到 22.20，不能只写 22。
+  #
+  # .smoke 下的 jsdom@30 依赖 undici@8，后者会调用
+  # zlib.createZstdDecompress。这个 API 是 Node 22.15 才引入的，
+  # 实测 22.14 仍然是 undefined，加载时直接抛：
+  #   TypeError: Cannot read properties of undefined (reading 'bind')
+  #
+  # 本地开发用的是 Node 24，本地永远跑得通，
+  # 只有 CI 会炸 —— 所以这里必须与本地对齐，且要够新。
+  NODE_VERSION: '22.20'
 
 jobs:
   # ==========================================================
@@ -86,6 +95,22 @@ jobs:
             exit 1
           fi
           echo "✅ 无 BOM 文件"
+
+      # ---------- lint job ----------
+      - name: 校验 Node 版本满足 undici 的 zstd 依赖
+        working-directory: .smoke
+        run: |
+          # jsdom@30 → undici@8 → zlib.createZstdDecompress（Node 22.15+）
+          # 这类「本地能跑、CI 挂」的版本差异靠人肉记忆迟早再犯，
+          # 直接在流水线里断言，把问题拦在测试之前。
+          HAS_ZSTD=$(node -e "console.log(typeof require('zlib').createZstdDecompress)")
+          if [ "$HAS_ZSTD" != "function" ]; then
+            echo "❌ 当前 Node $(node --version) 缺少 zlib.createZstdDecompress"
+            echo "   jsdom@30 依赖的 undici@8 会因此崩溃。"
+            echo "   需要 Node >= 22.15（实测 22.14 仍失败，22.20 可用）"
+            exit 1
+          fi
+          echo "✅ Node $(node --version) 满足要求"
 
       - name: 校验 .env 未被提交
         run: |
