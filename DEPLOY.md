@@ -171,3 +171,95 @@ curl http://localhost:8080/api/health
 
 预期结果：三个容器 healthy，10 张表就绪，
 2 条线 / 10 章 / 65 节点 / 33 选项 / 8 结局 全部导入。
+
+---
+
+## CI 实测记录（2026-10-18）
+
+GitHub Actions 已配置并跑通：`.github/workflows/ci.yml`
+仓库： https://github.com/Yacult12/lovechoice
+
+### 结果
+
+| Job | 内容 | 耗时 |
+| --- | --- | --- |
+| 语法与静态检查 | 语法、BOM、Node 版本、密钥、Docker 配置 | 14s |
+| 接口与玩法测试 | 建库灌数据 + 10 个测试脚本 | 2m23s |
+
+覆盖断言：172 + 186 = 约 360 项。
+
+### 首次配置时踩的五个坑
+
+CI 连续失败 5 次才绿，每次都是本地跑得好好的，只有 CI 炸。
+
+**1. 硬编码本机绝对路径**
+7 个脚本写死了 `C:/Users/...`，在 Linux 上直接 ENOENT。
+改用 `path.resolve(__dirname, '..')` 与相对 require。
+
+**2. find 表达式的两个语义错误**
+`-path ./node_modules -prune` 只排除了根目录，而依赖实际在
+`server/node_modules` 与 `.smoke/node_modules` 下；
+且缺 `-type f`，导致把目录当文件读（Is a directory）。
+改为 `-type d -name node_modules -prune` + `-type f`。
+
+**3. schema.sql 的时间默认值被加了引号**
+`information_schema` 返回的是字符串 `CURRENT_TIMESTAMP`，
+照抄成 `DEFAULT 'CURRENT_TIMESTAMP'` 会被 MySQL 当成字符串常量，
+报 ERROR 1067: Invalid default value。
+
+**4. 仓库里根本没有创建 routes / characters 数据的脚本**
+`full_story.sql` 靠 `route_code` 查 `routes.id`，而那批数据当初
+是在数据库里手工插的，只存在于开发机上。
+结果所有「从零建库」的流程都失败 —— 不只 CI，Docker 首次初始化、
+换新机器，全都跑不起来。已补`server/sql/base_data.sql`。
+
+**5. 索引导出丢了 NON_UNIQUE 标志**
+`export-schema.js` 把所有索引都写成 `UNIQUE KEY`，
+使 `scene_nodes.idx_chapter(chapter_id)` 变成单列唯一约束。
+而节点本就是「一章多个」，只有 `(chapter_id, node_key)` 才唯一，
+于是导入剧情报 Duplicate entry。
+
+**6. Node 版本差异**
+`jsdom@30` → `undici@8` → `zlib.createZstdDecompress`（Node 22.15+ 有）。
+本地 Node 24 永远跑得通，CI 的 Node 20 直接崩在加载阶段。
+实测：20.20 无 / 22.14 无 / 22.20 有 / 23.11 有。
+所以 `NODE_VERSION` 必须精确到 22.20，写 `'22'` 会拉到 22.14 依然失败。
+
+### 防复发
+
+新增 6 个校验脚本，共 186 项断言，都已纳入流水线：
+
+| 脚本 | 断言 | 作用 |
+| --- | --- | --- |
+| verify-portable.js | 19 |扫描硬编码路径 |
+| verify-shell.js | 19 | find 语义 + Node 版本约束 |
+| verify-ci.js | 53 | 流水线自身结构 |
+| verify-docker.js | 72 | compose / Dockerfile / nginx |
+| verify-schema.js | 16 | schema.sql 真的能建库 |
+| verify-bootstrap.js | 27 | 从零建库全流程 |
+
+另外流水线里直接断言 `createZstdDecompress` 存在，
+版本不够当场失败并给出修复指引。
+
+### 本地开发环境
+
+| 项 | 版本 |
+| --- | --- |
+| 默认 Node | 24.21.0 |
+| CI 用Node | 22.20.0（已装到 `%LOCALAPPDATA%\Programs\node22.20.0`） |
+
+本地改依赖后建议用 22.20 跑一遍测试，与 CI 保持一致：
+
+```powershell
+$n = "$env:LOCALAPPDATA\Programs\node22.20.0\node-v22.20.0-win-x64\node.exe"
+cd .smoke
+& $n smoke.js
+```
+
+### 常用命令
+
+```powershell
+gh run list --repo Yacult12/lovechoice          # 看运行记录
+gh run view <id> --repo Yacult12/lovechoice      # 看详情
+gh run view <id> --log-failed                    # 只看失败步骤日志
+```
