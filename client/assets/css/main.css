@@ -484,16 +484,35 @@ a { color: var(--accent); text-decoration: none; }
 .choice-btn .eff .f { color: var(--female); }
 
 /* 结局遮罩 */
+/*
+ * 结局卡遮罩。
+ *
+ * ⚠️ 这里不能用 place-items:center —— 当卡片比视口还高时，
+ * 居中会把上下两头都挤出可视区，而且因为父元素是 absolute inset:0，
+ * 内容溢出去的部分无法滚动，整张卡就变成「上半截能看、下半截点不到」。
+ * （玩家通关后看到的正是这个：🎉 新结局已解锁 和三个按钮全都摸不到。）
+ *
+ * 改成 align-items:flex-start + overflow-y:auto：
+ * 卡片永远从顶部开始排，内容超出时整个遮罩可以滚动，按钮一定能点到。
+ */
 .ending-overlay {
   position: absolute; inset: 0; z-index: 40;
-  display: grid; place-items: center; padding: 30px;
+  display: flex;
+  align-items: flex-start;      /* 顶部对齐，短卡片时靠 margin:auto 居中 */
+  justify-content: center;
+  overflow-y: auto;             /* 卡片超高时可滚动 */
+  overscroll-behavior: contain; /* 滚到底不要连带拖动背后的页面 */
+  padding: 30px 20px;
   background: radial-gradient(circle at 50% 45%, rgba(11, 10, 16, 0.86), rgba(5, 4, 9, 0.97));
   backdrop-filter: blur(8px);
   animation: fadeIn 0.7s var(--ease);
 }
+.ending-overlay > .ending-card { margin: auto; }  /* 卡片够矮时依然视觉居中 */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
 .ending-card {
   width: 100%; max-width: 520px; text-align: center;
+  flex: 0 0 auto;              /* 防止 flex 容器把卡片压扁 */
   padding: 38px 34px; border-radius: var(--radius-l);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);

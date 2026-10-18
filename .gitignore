@@ -110,3 +110,6 @@ docker-compose.override.yml
 # ============================================================
 .smoke/screenshots/
 .smoke/*.log
+# 测试截图是临时产物，不入库
+.smoke/shot-*.png
+.smoke/*.png

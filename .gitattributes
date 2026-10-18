@@ -1,0 +1,45 @@
+# ============================================================
+#   换行符统一策略
+#
+#   问题：Windows 上 Git 默认会把 LF 转成 CRLF 提交，
+#   换到 Linux/Mac 后又变回去，导致每次 clone 都显示「整个文件被修改」，
+#   严重时还会让 SQL 脚本因 CRLF 而执行失败。
+#
+#   方案：仓库内存 LF（.gitattributes 说了算），
+#   检出到 Windows 时才转成 CRLF。这样 diff 干净、跨平台一致。
+# ============================================================
+
+# 默认：入库一律 LF，检出时 Windows 转 CRLF
+* text=auto eol=lf
+
+# Windows 专用文件：保持 CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# 明确不允许文本转换的文件
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+
+# 美术资产按文本处理，强制 LF（避免 SVG 里混入 CRLF）
+*.svg   text eol=lf
+
+# 锁文件必须一致，否则 npm ci 会失败
+package-lock.json text eol=lf
+
+# SQL 脚本强制 LF：CRLF 会让部分 MySQL 客户端在 source 时报错
+*.sql   text eol=lf
+
+# 环境与配置
+.env.example text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
