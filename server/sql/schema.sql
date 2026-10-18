@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS `choice_logs` (
   `affection_female_after` smallint NOT NULL DEFAULT 0 COMMENT '选择后女方好感',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_choice` (`choice_id`),
-  UNIQUE KEY `idx_user_route` (`user_id`, `route_id`, `created_at`)
+  KEY `idx_choice` (`choice_id`),
+  KEY `idx_user_route` (`user_id`, `route_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `choices` (
   `effect_female` smallint NOT NULL DEFAULT 0 COMMENT '女方好感增量(可负)',
   `sort_no` tinyint NOT NULL DEFAULT 0 COMMENT '选项排序',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_node` (`node_id`),
+  KEY `idx_node` (`node_id`),
   UNIQUE KEY `uk_node_option` (`node_id`, `option_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS `saves` (
   `play_seconds` int unsigned NOT NULL DEFAULT 0 COMMENT '累计游玩秒数',
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_user` (`user_id`),
+  KEY `idx_user` (`user_id`),
   UNIQUE KEY `uk_user_slot` (`user_id`, `slot`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -133,7 +133,7 @@ CREATE TABLE IF NOT EXISTS `scene_nodes` (
   `node_type` enum('dialogue','choice','ending') NOT NULL DEFAULT 'dialogue' COMMENT '节点类型',
   `next_node_key` varchar(64) DEFAULT NULL COMMENT '线性推进的下一个节点',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `idx_chapter` (`chapter_id`),
+  KEY `idx_chapter` (`chapter_id`),
   UNIQUE KEY `uk_chapter_node` (`chapter_id`, `node_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS `user_endings` (
   `route_id` tinyint unsigned NOT NULL,
   `unlocked_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`, `ending_id`),
-  UNIQUE KEY `idx_user_route` (`user_id`, `route_id`)
+  KEY `idx_user_route` (`user_id`, `route_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ────────────────────────────────────────────────────────────

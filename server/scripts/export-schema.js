@@ -102,15 +102,30 @@ const DB = 'love';
       defs.push('  PRIMARY KEY (' + primary.map((p) => '`' + p + '`').join(', ') + ')');
     }
 
-    // 唯一索引（PRIMARY 已单独处理）
-    const seenIdx = new Set();
+    // 索引。⚠️ 必须按 NON_UNIQUE 区分 UNIQUE 和普通 KEY ——
+    // 早先这里一律输出 UNIQUE KEY，结果把普通索引也变成了唯一约束。
+    // 典型后果：scene_nodes 的 idx_chapter(chapter_id) 变成单列唯一，
+    // 于是同一章下的第二个节点就报
+    //   Duplicate entry '1' for key 'scene_nodes.idx_chapter'
+    // 而节点本来就是「一章多个」，只有 (chapter_id, node_key) 才唯一。
+    const seenIdx = new Map();
     for (const row of idx) {
-      if (row.INDEX_NAME === 'PRIMARY' || seenIdx.has(row.INDEX_NAME)) continue;
-      seenIdx.add(row.INDEX_NAME);
+      if (row.INDEX_NAME === 'PRIMARY') continue;
+      if (!seenIdx.has(row.INDEX_NAME)) {
+        seenIdx.set(row.INDEX_NAME, {
+          unique: Number(row.NON_UNIQUE) === 0,
+          cols: []
+        });
+      }
+      seenIdx.get(row.INDEX_NAME).cols.push(row.COLUMN_NAME);
     }
-    for (const name of seenIdx) {
-      const colsIn = idx.filter((r) => r.INDEX_NAME === name).map((r) => '`' + r.COLUMN_NAME + '`');
-      defs.push(`  UNIQUE KEY \`${name}\` (${colsIn.join(', ')})`);
+    for (const [name, info] of seenIdx) {
+      const colsIn = info.cols.map((cn) => '`' + cn + '`').join(', ');
+      defs.push(
+        info.unique
+          ? `  UNIQUE KEY \`${name}\` (${colsIn})`
+          : `  KEY \`${name}\` (${colsIn})`      // 普通索引，不是唯一约束
+      );
     }
 
     for (const fk of fks) {

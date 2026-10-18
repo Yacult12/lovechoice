@@ -36,11 +36,17 @@ services:
 
     volumes:
       - mysql-data:/var/lib/mysql
-      # 容器首次创建时按文件名顺序执行，01 先建表，02 再灌剧情
+      # 容器首次创建时按文件名顺序执行，顺序至关重要：
+      #   01 建表
+      #   02 灌 routes / characters  ← 必须在 03 之前
+      #   03 full_story.sql 靠 route_code 查 routes.id，
+      #      若 02 没跑，@r_male 就是 NULL，报
+      #      ERROR 1048: Column 'route_id' cannot be null
       - ./server/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./server/sql/full_story.sql:/docker-entrypoint-initdb.d/02-story.sql:ro
-      - ./server/sql/expand_dialogue.sql:/docker-entrypoint-initdb.d/03-expand-dialogue.sql:ro
-      - ./server/sql/avatars.sql:/docker-entrypoint-initdb.d/04-avatars.sql:ro
+      - ./server/sql/base_data.sql:/docker-entrypoint-initdb.d/02-base-data.sql:ro
+      - ./server/sql/full_story.sql:/docker-entrypoint-initdb.d/03-story.sql:ro
+      - ./server/sql/expand_dialogue.sql:/docker-entrypoint-initdb.d/04-expand-dialogue.sql:ro
+      - ./server/sql/avatars.sql:/docker-entrypoint-initdb.d/05-avatars.sql:ro
 
     ports:
       # 只绑定本机回环，不对外暴露 3306，避免被扫描

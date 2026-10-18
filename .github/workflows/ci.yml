@@ -165,13 +165,20 @@ jobs:
 
       - name: 建表并灌入剧情
         run: |
+          # 顺序很重要：base_data.sql 必须排在 full_story.sql 前面，
+          # 否则 full_story 的 @r_male / @r_female 取到 NULL，
+          # 报 ERROR 1048: Column 'route_id' cannot be null
           mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/schema.sql
+          mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/base_data.sql
           mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/full_story.sql
           mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/expand_dialogue.sql
           mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/avatars.sql
 
       - name: 校验 schema.sql 可干净导入
         run: node .smoke/verify-schema.js
+
+      - name: 校验从零建库全流程
+        run: node .smoke/verify-bootstrap.js
 
       - name: 校验数据完整性
         run: |

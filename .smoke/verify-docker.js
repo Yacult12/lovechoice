@@ -73,6 +73,14 @@ check('脚本编号顺序正确',
 check('schema.sql 最先执行', initdb.some((m) => m[2] === '01' && m[1].includes('schema')));
 initdb.forEach((m) => check(`引用的 ${m[1]} 存在`, exists(m[1])));
 
+// 顺序陷阱：full_story 靠 route_code 查 routes.id，
+// 基础数据脚本排在其后会导致 @r_male = NULL → ERROR 1048
+const basePos = initdb.findIndex((m) => m[1].includes('base_data'));
+const storyPos = initdb.findIndex((m) => m[1].includes('full_story'));
+check('base_data.sql 在 full_story.sql 之前执行',
+  basePos >= 0 && storyPos >= 0 && basePos < storyPos,
+  '基础数据必须先灌，否则 full_story 的 route_id 会是 NULL');
+
 const schema = read('server/sql/schema.sql');
 check('schema.sql 含 10 张表建表语句',
   (schema.match(/CREATE TABLE IF NOT EXISTS/g) || []).length === 10,
