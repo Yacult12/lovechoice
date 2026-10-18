@@ -1,0 +1,221 @@
+# ============================================================
+#   CI 流水线
+#
+#   触发时机：推送到 main / 发起 PR / 手动运行
+#
+#   两个 job：
+#     lint      —— 语法检查 + 静态校验（不需要数据库，10秒出结果）
+#     test      —— 完整测试（起 MySQL 服务容器，跑全部断言）
+#
+#   为什么要分两个：语法错误应该 10 秒内报错，而不是让人等 3 分钟拉镜像。
+# ============================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 同一分支的新提交取消旧任务，避免排队
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ==========================================================
+  # 快速检查：语法 + 静态校验
+  # ==========================================================
+  lint:
+    name: 语法与静态检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: 安装后端依赖
+        working-directory: server
+        run: npm ci --no-audit --no-fund
+
+      - name: 语法检查（后端）
+        run: |
+          find server/src server/scripts -name '*.js' -print0 \
+            | xargs -0 -n1 node --check
+
+      - name: 语法检查（前端与测试）
+        run: |
+          find client/assets/js .smoke -name '*.js' -print0 \
+            | xargs -0 -n1 node --check
+
+      - name: 校验 .env 未被提交
+        run: |
+          if git ls-files --error-unmatch server/.env 2>/dev/null; then
+            echo "❌ server/.env 被提交了！这是密钥泄漏，必须撤销该文件"
+            exit 1
+          fi
+          echo "✅ .env 未入库"
+
+      - name: Docker 配置静态校验
+        run: node .smoke/verify-docker.js
+
+  # ==========================================================
+  # 完整测试：起 MySQL，跑全部断言
+  # ==========================================================
+  test:
+    name: 接口与玩法测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint
+
+    # 本地跑测试时不需要限流，否则会互相干扰
+    env:
+      NODE_ENV: development
+      RATE_LIMIT_ENABLED: 'false'
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: 123456
+          MYSQL_DATABASE: love
+          TZ: Asia/Shanghai
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -p123456"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+          --health-start-period=40s
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: 安装后端依赖
+        working-directory: server
+        run: npm ci --no-audit --no-fund
+
+      - name: 安装测试依赖
+        working-directory: .smoke
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: 写入后端配置
+        working-directory: server
+        run: |
+          cat > .env <<EOF
+          NODE_ENV=development
+          PORT=3000
+          DB_HOST=127.0.0.1
+          DB_PORT=3306
+          DB_USER=root
+          DB_PASSWORD=123456
+          DB_NAME=love
+          JWT_SECRET=ci-only-secret-not-for-production-use-1234567890
+          BCRYPT_ROUNDS=4
+          RATE_LIMIT_ENABLED=false
+          EOF
+
+      - name: 建表并灌入剧情
+        run: |
+          mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/schema.sql
+          mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/full_story.sql
+          mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/expand_dialogue.sql
+          mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/avatars.sql
+
+      - name: 校验数据完整性
+        run: |
+          set -e
+          q() { mysql -h127.0.0.1 -uroot -p123456 -N -B love -e "$1"; }
+          echo "  路由   : $(q 'SELECT COUNT(*) FROM routes')"
+          echo "  章节   : $(q 'SELECT COUNT(*) FROM chapters')"
+          echo "  节点   : $(q 'SELECT COUNT(*) FROM scene_nodes')"
+          echo "  选项   : $(q 'SELECT COUNT(*) FROM choices')"
+          echo "  结局   : $(q 'SELECT COUNT(*) FROM endings')"
+          test "$(q 'SELECT COUNT(*) FROM routes')" = "2"
+          test "$(q 'SELECT COUNT(*) FROM chapters')" = "10"
+          test "$(q 'SELECT COUNT(*) FROM endings')" = "8"
+          echo "✅ 数据完整"
+
+      - name: 启动后端
+        working-directory: server
+        run: |
+          node src/server.js &
+          echo $! > /tmp/backend.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3000/api/health > /dev/null; then
+              echo "✅ 后端就绪"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "❌ 后端启动超时"
+          exit 1
+
+      - name: 启动前端
+        working-directory: client
+        run: |
+          npx --yes serve -l 5500 . &
+          for i in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:5500/ > /dev/null; then
+              echo "✅ 前端就绪"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "❌ 前端启动失败"
+          exit 1
+
+      - name: 结局穷举验证
+        working-directory: server
+        run: npm run test:endings
+
+      - name: 数据库结构检查
+        working-directory: server
+        run: npm run db:check
+
+      - name: API 全量审计（72 项）
+        working-directory: .smoke
+        run: node api-audit.js
+
+      - name: 冒烟测试（45 项）
+        working-directory: .smoke
+        run: node smoke.js
+
+      - name: 越权隔离验证（9 项）
+        working-directory: .smoke
+        run: node authz-final.js
+
+      - name: 限流验证（16 项，独立端口）
+        working-directory: .smoke
+        run: node verify-ratelimit.js
+
+      - name: 结局卡布局验证（14 项）
+        working-directory: .smoke
+        run: node verify-ending-card.js
+
+      - name: 汇总
+        if: always()
+        run: |
+          echo "=== 测试结束 ==="
+          curl -s http://127.0.0.1:3000/api/health | head -c 400 || true
+          echo ""
