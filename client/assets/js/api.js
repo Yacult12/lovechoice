@@ -7,8 +7,23 @@
 (function (global) {
   'use strict';
 
-  // 开发环境：前端 5500 / 8000 端口，接口走 3000
-  var BASE = global.LOVE_API_BASE || 'http://127.0.0.1:3000';
+  /**
+   * API 基址。优先级：
+   *   1. window.LOVE_API_BASE —— 运行时注入（容器部署时由 nginx 挂载 config.js 提供）
+   *   2. 同源相对路径 ''      —— 前后端同域（容器/nginx 部署），不涉及 CORS
+   *   3. 直连 3000            —— 本地开发兜底
+   *
+   * 本地开发时前端跑在 5500/5600，和后端 3000 不同源，必须直连；
+   * 容器部署时 nginx 把前端和 /api 放在同一端口，才能用同源相对路径。
+   */
+  var BASE = global.LOVE_API_BASE;
+  if (BASE === undefined || BASE === null || BASE === '') {
+    // 没注入就走同源；但本地开发端口例外，要直连 3000
+    var port = location.port;
+    var isDevPort = port === '5500' || port === '5600' || port === '8000';
+    BASE = (location.protocol === 'file:' || isDevPort) ? 'http://127.0.0.1:3000' : '';
+  }
+  BASE = String(BASE);
 
   var TOKEN_KEY = 'lovechoice_token';
   var USER_KEY = 'lovechoice_user';

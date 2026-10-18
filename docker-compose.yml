@@ -1,0 +1,132 @@
+# ============================================================
+#   一键部署：docker compose up -d
+#
+#   三个服务：
+#     mysql    数据库（数据落在具名卷里，容器重建不丢）
+#     backend  Node API（跑 sql/schema.sql 建表，依赖 mysql 健康后才启动）
+#     frontend nginx（静态托管 + /api 反代到 backend）
+#
+#   首次启动：docker compose up -d --build
+#   查看日志：docker compose logs -f backend
+#   彻底重来：docker compose down -v   ← 连数据一起删，慎用
+# ============================================================
+
+name: lovechoice
+
+services:
+  # ---------------------------------------------------------
+  # 数据库
+  # ---------------------------------------------------------
+  mysql:
+    image: mysql:8.0
+    container_name: lovechoice-mysql
+    restart: unless-stopped
+
+    # 密码从 .env 读，别硬编码在这里
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: ${DB_NAME:-love}
+      TZ: Asia/Shanghai
+
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 初始化排序规则统一用 unicode_ci，和 schema.sql 里保持一致
+      - --default-authentication-plugin=mysql_native_password
+
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 容器首次创建时按文件名顺序执行，01 先建表，02 再灌剧情
+      - ./server/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./server/sql/full_story.sql:/docker-entrypoint-initdb.d/02-story.sql:ro
+      - ./server/sql/expand_dialogue.sql:/docker-entrypoint-initdb.d/03-expand-dialogue.sql:ro
+      - ./server/sql/avatars.sql:/docker-entrypoint-initdb.d/04-avatars.sql:ro
+
+    ports:
+      # 只绑定本机回环，不对外暴露 3306，避免被扫描
+      - "127.0.0.1:${DB_PORT:-3306}:3306"
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_PASSWORD:-123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+    networks:
+      - love
+
+  # ---------------------------------------------------------
+  # 后端 API
+  # ---------------------------------------------------------
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: lovechoice-backend
+    restart: unless-stopped
+
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      TZ: Asia/Shanghai
+
+      # 用服务名 mysql 走容器内网，不经过宿主机端口
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-123456}
+      DB_NAME: ${DB_NAME:-love}
+
+      # 生产必须换成随机长串
+      JWT_SECRET: ${JWT_SECRET:-please-change-me-to-a-long-random-secret-string}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+
+      # 生产环境限流默认开启
+      RATE_LIMIT_ENABLED: "true"
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
+      RATE_LIMIT_WRITE_MAX: ${RATE_LIMIT_WRITE_MAX:-30}
+      RATE_LIMIT_AUTH_MAX: ${RATE_LIMIT_AUTH_MAX:-10}
+
+      # 同源部署，CORS 不需要放开
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    ports:
+      # 只绑本机，方便宿主机调试；生产可改成只留 127.0.0.1
+      - "127.0.0.1:${BACKEND_PORT:-3000}:3000"
+
+    networks:
+      - love
+
+  # ---------------------------------------------------------
+  # 前端 nginx
+  # ---------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: lovechoice-frontend
+    restart: unless-stopped
+
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    ports:
+      # 浏览器访问这个端口
+      - "${WEB_PORT:-8080}:80"
+
+    networks:
+      - love
+
+volumes:
+  mysql-data:
+    driver: local
+
+networks:
+  love:
+    driver: bridge

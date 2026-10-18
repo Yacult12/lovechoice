@@ -14,6 +14,12 @@
   <div id="toast-host"></div>
   <div id="modal-host"></div>
 
+  <!--
+    运行时配置：必须在 api.js 之前加载。
+    nginx 会把这份文件挂载覆盖，于是改 API 地址只需重启容器、不必重新构建镜像。
+    本地开发时这个文件可能不存在，加载失败不影响 —— api.js 会退回直连 3000。
+  -->
+  <script src="./config.js" onerror="window.LOVE_API_BASE=undefined"></script>
   <script src="./assets/js/api.js"></script>
   <script src="./assets/js/ui.js"></script>
   <script src="./assets/js/store.js"></script>
