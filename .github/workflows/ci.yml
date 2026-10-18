@@ -51,12 +51,16 @@ jobs:
 
       - name: 语法检查（后端）
         run: |
-          find server/src server/scripts -name '*.js' -print0 \
+          find server/src server/scripts -type f -name '*.js' -print0 \
             | xargs -0 -n1 node --check
 
       - name: 语法检查（前端与测试）
         run: |
-          find client/assets/js .smoke -name '*.js' -print0 \
+          # 必须排除 node_modules —— .smoke 下装了 playwright，有 600+ 个 JS 文件
+          find client/assets/js -type f -name '*.js' -print0 \
+            | xargs -0 -n1 node --check
+          find .smoke -type d -name node_modules -prune -o \
+                   -type f -maxdepth 1 -name '*.js' -print0 \
             | xargs -0 -n1 node --check
 
       # ⚠️ 历史上踩过的坑：Windows 下带 BOM 的 JS 能正常跑，
@@ -65,16 +69,20 @@ jobs:
       - name: 检查 UTF-8 BOM
         run: |
           failed=0
+          # 用 -type f 挡掉目录；-name node_modules -prune 排掉所有层级的依赖目录
+          # （只写 -path ./node_modules 不够，依赖实际在 server/ 和 .smoke/ 下）
           while IFS= read -r -d '' f; do
+            [ -f "$f" ] || continue
             if [ "$(head -c 3 "$f" | od -An -tx1 | tr -d ' \n')" = "efbbbf" ]; then
               echo "❌ $f 含 UTF-8 BOM（Linux 上会解析失败）"
               failed=1
             fi
-          done < <(find . -path ./node_modules -prune -o \
-                       \( -name '*.js' -o -name '*.json' -o -name '*.md' \
-                          -o -name '*.yml' -o -name '*.sql' \) -print0)
+          done < <(find . -type d -name node_modules -prune -o \
+                   -type f \
+                   \( -name '*.js' -o -name '*.json' -o -name '*.md' \
+                      -o -name '*.yml' -o -name '*.sql' \) -print0)
           if [ "$failed" -ne 0 ]; then
-            echo "请用无 BOM 的 UTF-8 重新保存上述文件"
+            echo "请用无 BOM 的 UTF-8 重新保存上述文件（node .smoke/fix-encoding.js）"
             exit 1
           fi
           echo "✅ 无 BOM 文件"
