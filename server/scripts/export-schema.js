@@ -73,12 +73,26 @@ const DB = 'love';
     const defs = cols.map((col) => {
       let line = '  `' + col.COLUMN_NAME + '` ' + col.COLUMN_TYPE;
       if (col.IS_NULLABLE === 'NO') line += ' NOT NULL';
-      if (col.COLUMN_DEFAULT !== null && col.COLUMN_DEFAULT !== undefined) {
-        const d = String(col.COLUMN_DEFAULT);
+
+      const raw = col.COLUMN_DEFAULT;
+      const isTimestamp =
+        typeof raw === 'string' &&
+        /^(now\(\)|current_timestamp(\(\d*\))?)$/i.test(raw.trim());
+
+      if (isTimestamp) {
+        // ⚠️ 这里绝对不能加引号。
+        // information_schema.COLUMNS.COLUMN_DEFAULT 对时间默认值返回的是
+        // 字符串 'CURRENT_TIMESTAMP'，直接照抄成 DEFAULT 'CURRENT_TIMESTAMP'
+        // 会被 MySQL 当成字符串常量，导入时报
+        //   ERROR 1067 (42000): Invalid default value for 'created_at'
+        line += ' DEFAULT CURRENT_TIMESTAMP';
+      } else if (raw !== null && raw !== undefined) {
+        const d = String(raw);
         line += ' DEFAULT ' + (d === 'NULL' || /^-?\d+(\.\d+)?$/.test(d) ? d : `'${d}'`);
-      } else if (col.COLUMN_DEFAULT === null && col.IS_NULLABLE === 'YES' && col.EXTRA !== 'auto_increment') {
+      } else if (raw === null && col.IS_NULLABLE === 'YES' && col.EXTRA !== 'auto_increment') {
         line += ' DEFAULT NULL';
       }
+
       if (col.EXTRA && col.EXTRA.includes('auto_increment')) line += ' AUTO_INCREMENT';
       if (col.COLUMN_COMMENT) line += ` COMMENT '${col.COLUMN_COMMENT.replace(/'/g, "''")}'`;
       return line;

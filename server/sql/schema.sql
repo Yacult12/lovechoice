@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS `choice_logs` (
   `affection_female_before` smallint NOT NULL DEFAULT 0 COMMENT '选择前女方好感',
   `affection_male_after` smallint NOT NULL DEFAULT 0 COMMENT '选择后男方好感',
   `affection_female_after` smallint NOT NULL DEFAULT 0 COMMENT '选择后女方好感',
-  `created_at` datetime DEFAULT 'CURRENT_TIMESTAMP',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_choice` (`choice_id`),
   UNIQUE KEY `idx_user_route` (`user_id`, `route_id`, `created_at`)
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS `saves` (
   `state_json` json DEFAULT NULL COMMENT '其他状态标记(flag/道具/已读)',
   `schema_version` int NOT NULL DEFAULT 1 COMMENT '存档结构版本',
   `play_seconds` int unsigned NOT NULL DEFAULT 0 COMMENT '累计游玩秒数',
-  `updated_at` datetime DEFAULT 'CURRENT_TIMESTAMP',
+  `updated_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_user` (`user_id`),
   UNIQUE KEY `uk_user_slot` (`user_id`, `slot`)
@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS `user_endings` (
   `user_id` bigint unsigned NOT NULL,
   `ending_id` int unsigned NOT NULL,
   `route_id` tinyint unsigned NOT NULL,
-  `unlocked_at` datetime DEFAULT 'CURRENT_TIMESTAMP',
+  `unlocked_at` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`user_id`, `ending_id`),
   UNIQUE KEY `idx_user_route` (`user_id`, `route_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -157,7 +157,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username` varchar(32) NOT NULL COMMENT '登录名',
   `password_hash` varchar(100) NOT NULL COMMENT 'bcrypt哈希(60字符)',
   `nickname` varchar(32) DEFAULT NULL COMMENT '昵称',
-  `created_at` datetime DEFAULT 'CURRENT_TIMESTAMP' COMMENT '注册时间',
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '注册时间',
   `last_login_at` datetime DEFAULT NULL COMMENT '最后登录时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)

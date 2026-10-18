@@ -170,6 +170,9 @@ jobs:
           mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/expand_dialogue.sql
           mysql -h127.0.0.1 -P3306 -uroot -p123456 love < server/sql/avatars.sql
 
+      - name: 校验 schema.sql 可干净导入
+        run: node .smoke/verify-schema.js
+
       - name: 校验数据完整性
         run: |
           set -e
