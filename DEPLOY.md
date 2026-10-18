@@ -125,3 +125,49 @@ docker compose exec mysql mysqldump -uroot -p123456 love > backup.sql
 | JWT_SECRET 至少 32 位 | 跑 `init-docker-env.js` 重新生成 |
 | 数据没了 | 用过 `down -v`，卷被删了 |
 | 改了代码没生效 | 要 `--build`，`restart` 不重新构建 |
+
+---
+
+## 实测记录（2026-10-18）
+
+Docker Desktop 4.95.0 已安装，守护进程正常（Server 29.8.2 / Compose v5.6.0），
+`docker compose config` 校验通过，端口避让正确（3307/ 3001 / 8080）。
+
+**未能完成镜像构建**，原因是网络对 Docker Hub 的拦截：
+
+```
+dialing registry-1.docker.io:443 ... dial tcp 108.160.166.148:443:
+A connection attempt failed because the connected party did not
+properly respond after a period of time
+```
+
+已尝试并失败的方案：
+- winget 安装（下载走desktop.docker.com）
+- 公共镜像加速：daocloud / dockerproxy / 163 / docker-cn（均为 502 或超时）
+- 宿主机与容器网络分别测试，结果一致
+
+本机能正常访问：registry.npmjs.org、mirrors.tuna.tsinghua.edu.cn、
+mirrors.aliyun.com、github.com（偶发）、desktop.docker.com（需带浏览器 UA）。
+
+### 换网络后如何继续
+
+```powershell
+# 1. 配置镜像加速（任选可用源，填入 Docker Desktop → Settings → Docker Engine）
+{
+  "registry-mirrors": ["https://<你的加速器地址>"]
+}
+
+# 2. 确认 compose 配置
+docker compose config --quiet
+
+# 3. 构建并启动
+docker compose up -d --build
+
+# 4. 验证
+docker compose ps
+docker compose logs -f backend
+curl http://localhost:8080/api/health
+```
+
+预期结果：三个容器 healthy，10 张表就绪，
+2 条线 / 10 章 / 65 节点 / 33 选项 / 8 结局 全部导入。
