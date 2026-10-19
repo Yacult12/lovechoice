@@ -1,83 +1,177 @@
 /* ============================================================
-   背景音乐：全站单例，从进入游戏起一直播放，不随剧情切换
+   背景音乐：全站单例，按「幕」切换曲目，各自循环播放前奏段
+
+   曲目安排
+   ----------
+     default 剧情之外（标题页/ 选线 / 图鉴 / 档案等非剧情界面）
+     act1~5  对应第 1~5 幕
 
    设计要点
-   - 用 HTMLAudioElement 循环播放，loop = true，剧情跳转不会打断。
-   - 浏览器策略：首次交互前不允许自动播放。所以进入 auth 页时
-     立刻 play() 一次（用户正在点「注册」按钮，算交互），
-     之后靠 loop 持续播放。播放失败静默忽略，等下一次交互再试。
+   - 每首只循环播放开头 30 秒（切片时已加淡入淡出，接缝听不出来），
+     完整曲目接近 4 分钟，全曲循环会腻，而且占带宽。
+   - 切幕时淡出旧曲 → 换src → 淡入新曲，避免硬切。
+   - 浏览器策略：首次交互前不允许自动播放。进入 auth 页时用户
+     正在点「注册」按钮（算交互），此时 play() 能成功。
    - 用户可在顶栏手动开关，状态记在 localStorage。
-   - 音量固定偏低（0.35），避免盖过文字阅读。
+   - 音量固定偏低（0.32），避免盖过文字阅读。
+
+   ⚠️ 换曲时必须重新赋值 audio.src 并显式 load()，
+   否则部分浏览器不会触发 canplay，卡在上一首。
    ============================================================ */
 (function (global) {
   'use strict';
 
-  var SRC = './assets/audio/bgm.mp3';
-  var VOLUME = 0.35;
+  /* 幕 → 曲目文件 */
+  var TRACKS = {
+    default: './assets/audio/default.mp3',
+    act1: './assets/audio/act1.mp3',
+    act2: './assets/audio/act2.mp3',
+    act3: './assets/audio/act3.mp3',
+    act4: './assets/audio/act4.mp3',
+    act5: './assets/audio/act5.mp3'
+  };
+
+  var DEFAULT_TRACK = 'default';
+  var FADE_MS = 900;
+  var VOLUME = 0.32;
 
   var audio = null;
-  var started = false;
+  var currentKey = null;
   var lastError = null;
+  var fadeTimer = null;
 
   function ensure() {
     if (audio) return audio;
     audio = new Audio();
-    audio.src = SRC;
     audio.loop = true;
     audio.preload = 'auto';
-    audio.volume = VOLUME;
+    audio.volume = 0;
     return audio;
   }
 
-  /** 尝试播放，失败不抛（浏览器可能还没允许自动播放） */
-  function play() {
-    var a = ensure();
-    if (a.paused) {
-      var p = a.play();
-      // Chrome 会因为没有用户交互而 reject，这是预期内的，静默处理
-      if (p && typeof p.catch === 'function') {
-        p.catch(function (err) {
-          lastError = err;
-        });
-      }
-    }
-    started = true;
+  function srcFor(key) {
+    return TRACKS[key] || TRACKS[DEFAULT_TRACK];
   }
 
-  function pause() {
-    if (audio) audio.pause();
-    started = false;
-  }
-
-  /** 音量淡出，用于结局等需要安静的场合（当前版本默认不淡出） */
-  function fadeOut(ms, done) {
+  /** 淡入到目标音量 */
+  function fadeIn(to, ms, done) {
     var a = ensure();
-    var steps = 20;
+    clearInterval(fadeTimer);
+    var steps = 18;
     var i = 0;
     var from = a.volume;
-    var timer = setInterval(function () {
+    fadeTimer = setInterval(function () {
+      i += 1;
+      a.volume = from + (to - from) * (i / steps);
+      if (i >= steps) {
+        clearInterval(fadeTimer);
+        fadeTimer = null;
+        a.volume = to;
+        if (done) done();
+      }
+    }, (ms || FADE_MS) / steps);
+  }
+
+  /** 淡出到 0，完成后回调 */
+  function fadeOut(ms, done) {
+    var a = ensure();
+    if (a.paused) { if (done) done(); return; }
+    clearInterval(fadeTimer);
+    var steps = 18;
+    var i = 0;
+    var from = a.volume;
+    fadeTimer = setInterval(function () {
       i += 1;
       a.volume = Math.max(0, from * (1 - i / steps));
       if (i >= steps) {
-        clearInterval(timer);
-        a.volume = VOLUME;
+        clearInterval(fadeTimer);
+        fadeTimer = null;
+        a.volume = 0;
         if (done) done();
       }
-    }, (ms || 600) / steps);
+    }, (ms || FADE_MS) / steps);
   }
 
-  /**
-   * 根据用户偏好启动。用户已在 auth 页交互过，此时播放能成功。
-   */
-  function init() {
-    var want = global.Store && Store.musicOn ? Store.musicOn() : true;
-    if (want) play();
+  function wantPlaying() {
+    return global.Store && Store.musicOn ? Store.musicOn() : true;
+  }
 
-    // 页面从后台切回前台时，若音乐被浏览器暂停则恢复
+  /** 载入并播放指定幕的曲子 */
+  function load(key, thenPlay) {
+    var a = ensure();
+    var next = srcFor(key);
+    if (a.src && a.src.indexOf(next) >= 0 && !a.paused) {
+      // 已经是这一首且在播，直接淡入即可
+      if (thenPlay && wantPlaying()) fadeIn(VOLUME);
+      return;
+    }
+
+    currentKey = key;
+    fadeOut(FADE_MS / 2, function () {
+      a.src = next;
+      try { a.load(); } catch (e) { /* 老浏览器忽略 */ }
+      if (!thenPlay || !wantPlaying()) return;
+      var p = a.play();
+      if (p && typeof p.catch === 'function') {
+        p.then(function () { fadeIn(VOLUME); })
+         .catch(function (err) { lastError = err; });
+      } else {
+        a.onloadeddata = function () { fadeIn(VOLUME); };
+      }
+    });
+  }
+
+  /** 剧情页调用：按当前幕切曲 */
+  function forChapter(no) {
+    var key = DEFAULT_TRACK;
+    var n = Number(no);
+    if (n >= 1 && n <= 5) key = 'act' + n;
+    if (key === currentKey) {
+      // 同一幕重复进入，音量可能已被淡出到 0，兜一下
+      if (wantPlaying() && audio && audio.paused) load(key, true);
+      else if (wantPlaying() && audio && audio.volume < VOLUME * 0.5) fadeIn(VOLUME);
+      return;
+    }
+    load(key, true);
+  }
+
+  /** 非剧情页调用：切回默认曲 */
+  function forScene() {
+    if (currentKey === DEFAULT_TRACK) {
+      if (wantPlaying() && audio && audio.paused) load(DEFAULT_TRACK, true);
+      return;
+    }
+    load(DEFAULT_TRACK, true);
+  }
+
+  function play() {
+    var key = currentKey || DEFAULT_TRACK;
+    if (!audio || !audio.src) { load(key, true); return; }
+    var p = audio.play();
+    if (p && typeof p.catch === 'function') {
+      p.then(function () { fadeIn(VOLUME); }).catch(function (e) { lastError = e; });
+    }
+  }
+
+  function pause() {
+    if (!audio) return;
+    clearInterval(fadeTimer);
+    fadeTimer = null;
+    audio.pause();
+  }
+
+  /** 结局等需要安静的场合 */
+  function fadeOutFor(ms, done) {
+    fadeOut(ms || FADE_MS, done);
+  }
+
+  function init() {
+    var want = wantPlaying();
+    if (want) load(DEFAULT_TRACK, true);
+
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) return;
-      var on = global.Store && Store.musicOn ? Store.musicOn() : true;
-      if (on) play();
+      if (wantPlaying()) play();
     });
 
     // 首次任意交互后再试一次，绕开自动播放限制
@@ -85,8 +179,7 @@
     var onFirstTouch = function () {
       if (tried) return;
       tried = true;
-      var on = global.Store && Store.musicOn ? Store.musicOn() : true;
-      if (on) play();
+      if (wantPlaying()) play();
       document.removeEventListener('pointerdown', onFirstTouch);
       document.removeEventListener('keydown', onFirstTouch);
     };
@@ -95,20 +188,20 @@
   }
 
   function toggle() {
-    var on = global.Store && Store.musicOn ? Store.musicOn() : true;
+    var on = wantPlaying();
     if (on) {
       if (global.Store) Store.setMusicOn(false);
-      pause();
+      fadeOut(400);
+      setTimeout(function () { if (audio) audio.pause(); }, 420);
     } else {
       if (global.Store) Store.setMusicOn(true);
-      play();
+      load(currentKey || DEFAULT_TRACK, true);
     }
     return !on;
   }
 
-  function isOn() {
-    return global.Store && Store.musicOn ? Store.musicOn() : true;
-  }
+  function isOn() { return wantPlaying(); }
+  function currentTrack() { return currentKey || DEFAULT_TRACK; }
 
   global.Music = {
     init: init,
@@ -116,7 +209,10 @@
     pause: pause,
     toggle: toggle,
     isOn: isOn,
-    fadeOut: fadeOut,
-    SRC: SRC
+    fadeOut: fadeOutFor,
+    forChapter: forChapter,
+    forScene: forScene,
+    currentTrack: currentTrack,
+    TRACKS: TRACKS
   };
 })(window);

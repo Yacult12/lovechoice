@@ -265,6 +265,17 @@ var page = el('div.page.stage-host', stage);
     }
 
     function renderScene(node) {
+      /*
+       * 配乐跟随幕数切换。
+       *
+       * 挂在这里而不是「选线时」或「结算时」，是因为 renderScene
+       * 在每次推进节点、每次跨章时都会跑 —— 它是章节号唯一可靠的
+       * 单一来源（S.save.chapterNo 可能在别处被写过，但 scene 一定同步）。
+       */
+      if (global.Music && Music.forChapter) {
+        Music.forChapter(node && node.chapterNo ? node.chapterNo : chapterNo());
+      }
+
       // 背景：优先实体图，没有就降级渐变；先淡出换图，再淡入，附带缓慢推近
       var key = node && node.bgKey ? node.bgKey : 'default';
       var cur = bg.dataset.bgKey;

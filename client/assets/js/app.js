@@ -111,6 +111,18 @@
     fireLeave();
     UI.closeAllModals();
 
+    /*
+     * 配乐跟随场景：
+     *   - 剧情页（play）由 play.js 的 renderScene 按幕号切换，不在这里动
+     *   - 其他所有页面（标题/选线/图鉴/档案/存档…）用 default 曲
+     *
+     * 必须放在 render() 里而不是 go() 里 —— 用户可能直接改地址栏
+     * 或用浏览器前进/后退按钮换页，那些路径不经过 go()。
+     */
+    if (global.Music && Music.forScene && (!matched || matched.name !== 'play')) {
+      Music.forScene();
+    }
+
     appRoot.innerHTML = '';
     current.name = matched ? matched.name : null;
 
