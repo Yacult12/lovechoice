@@ -27,7 +27,9 @@
     var gestureTray = el('div.gesture-tray');
     var stage = el('div#stage', [bg, stageTop, portraitBox, dialogueArea, gestureTray]);
 
-    var page = el('div.page', stage);
+    // stage-host 让 .page 关闭滚动 —— 剧情页是全屏舞台，
+// 立绘出现/消失不应该改变页面高度、更不该要求玩家拖滚动条。
+var page = el('div.page.stage-host', stage);
     root.innerHTML = '';
     root.appendChild(page);
 
@@ -290,12 +292,12 @@
       if (want !== 'none' && S.character && S.character[want]) {
         var url = pickAvatar(want);
         if (url) {
-          var img = el('img', {
+          var img = el('img.figure', {
             src: url,
-            alt: (S.character[want].name || '') + ' · ' + moodOf(want),
+            alt: (S.character[want].name || '') + '· ' + moodOf(want),
             style: { transform: want === 'male' ? 'translateX(-16%)' : 'translateX(16%)' }
           });
-          // 兜底：阶段形象缺失时退回第 1 章，再不行就退回柔和表情
+          // 兜底：阶段形象缺失时退回第1 章，再不行就退回柔和表情
           img.addEventListener('error', function () {
             if (want === 'female' && /-c\d+-/.test(url)) {
               img.src = url.replace(/-c\d+-/, '-c1-');
@@ -305,12 +307,21 @@
           });
           UI.mount(portraitBox, img);
         } else {
-          UI.mount(portraitBox, el('div', {
+          UI.mount(portraitBox, el('div.figure', {
             style: { fontSize: '92px', opacity: '.35', lineHeight: '1' }
           }, want === 'male' ? '♂' : '♀'));
         }
+        portraitBox.classList.remove('empty');
       } else {
+        /*
+         * 不移除元素，只标记 .empty 让 CSS 把 opacity 降到 0。
+         *
+         * 直接 UI.mount(portraitBox, null) 会让这块 flex 空间瞬间塌缩，
+         * 对白被顶上去、下句有立绘又落回来 —— 视觉上剧烈抽搐。
+         * 保留占位 + 透明度过渡，布局完全稳定。
+         */
         UI.mount(portraitBox, null);
+        portraitBox.classList.add('empty');
       }
     }
 

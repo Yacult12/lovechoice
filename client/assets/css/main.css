@@ -254,6 +254,17 @@ a { color: var(--accent); text-decoration: none; }
 
 #stage { position: relative; height: 100%; overflow: hidden; display: flex; flex-direction: column; }
 
+/*
+ * 剧情页的容器必须禁止滚动。
+ *
+ * 之前 .page 统一带 overflow-y: auto，于是立绘一出现把内容撑高，
+ * 对白就被挤出视口底部 —— 玩家得手动拉滚动条才能看到对话，
+ * 而立绘消失时又能滚回来，非常突兀。
+ *
+ * 剧情页是全屏舞台，不该滚动；需要滚动的是列表页。
+ */
+.page.stage-host { overflow: hidden; }
+
 .scene-bg {
   position: absolute; inset: 0;
   background-size: cover; background-position: center;
@@ -403,8 +414,17 @@ a { color: var(--accent); text-decoration: none; }
 /* 立绘 */
 .portrait {
   position: relative; z-index: 3;
-  flex: 1; display: flex; align-items: flex-end; justify-content: center;
+  flex: 1 1 auto; display: flex; align-items: flex-end; justify-content: center;
   min-height: 0; padding: 0 20px;
+  /*
+   * 立绘区永远占位，只是里面的图淡入淡出。
+   *
+   * 之前是 UI.mount(portraitBox, null) 把 img整个移除，
+   * 于是这一块的 flex-basis 立刻塌缩 → 对白整体上跳，
+   * 下一句有立绘又撑回来，形成「抽搐」。
+   * 现在保留占位、用 opacity 切换，布局一动不动。
+   */
+  transition: opacity .34s var(--ease);
 }
 .portrait img {
   max-height: 100%; max-width: 100%;
@@ -412,6 +432,17 @@ a { color: var(--accent); text-decoration: none; }
   animation: riseIn 0.55s var(--ease);
 }
 @keyframes riseIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+
+/* 立绘入场/退场：只改透明度与轻微位移，不影响布局 */
+.portrait .figure {
+  animation: figureIn .38s var(--ease);
+  transition: opacity .34s var(--ease), transform .34s var(--ease);
+}
+.portrait.empty { opacity: 0; }
+@keyframes figureIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
 
 /* 对白区 */
 .dialogue-area {
@@ -431,6 +462,18 @@ a { color: var(--accent); text-decoration: none; }
   min-height: 128px;
   cursor: pointer;
   transition: border-color 0.25s var(--ease);
+
+  /*
+   * 对白框永远留在视口内。
+   *
+   * 长文本会把 min-height 顶高，如果 .portrait 占了太多空间，
+   * 整个对白框会被推到屏幕外 —— 玩家必须拖滚动条才看得到。
+   * 限制最大高度 + 内部可滚动，保证对白始终可见；
+   * 立绘区flex-shrink 会自动让出空间，不会把它挤出去。
+   */
+  max-height: min(46vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .dialogue-box:hover { border-color: rgba(255, 255, 255, 0.26); }
 .dialogue-box .speaker {
@@ -629,5 +672,31 @@ a { color: var(--accent); text-decoration: none; }
   .stage-top { flex-wrap: wrap; padding: 10px 14px; }
   .affection-bars { width: 100%; }
   .aff-bar { flex: 1; min-width: 0; }
-  .portrait { display: none; }
+
+  /*
+   * 小屏不再直接隐藏立绘。
+   *
+   * 之前 .portrait { display:none } 会让立绘在手机上彻底消失 ——
+   * 但桌面端有立绘、手机端没有，玩家会觉得是两个游戏。
+   * 改成保留但压扁：给一个固定高度的比例，立绘缩小显示。
+   */
+  .portrait {
+    display: flex;
+    flex: 0 1 auto;
+    height: 34vh;
+    min-height: 150px;
+    padding: 0 10px;
+  }
+  .portrait img { max-height: 100%; }
+
+  /* 顶栏按钮换行时不要把对白挤出屏幕 */
+  .stage-top { row-gap: 6px; }
+  .dialogue-box { min-height: 108px; }
+}
+
+/* 超矮屏（横放手机等）：进一步压缩立绘区 */
+@media (max-height: 560px) {
+  .portrait { height: 26vh; min-height: 96px; }
+  .dialogue-box { min-height: 84px; padding: 14px 16px; }
+  .dialogue-box .text { font-size: 14.5px; }
 }
