@@ -1,12 +1,15 @@
 /**
- * 验证剧情页布局修复
+ * 验证剧情页底部吸底布局
  *   node verify-stage-layout.js
  *
- * 检查项
- *   1. .page.stage-host 禁止滚动（立绘不再把对白推出视口）
- *   2. 立绘区永远占位，用 .empty 淡出而非移除
- *   3. 对白框有 max-height，保证留在视口内
- *   4. 小屏不再隐藏立绘
+ * 结构（三层）
+ *   .stage-top      顶部操作栏
+ *   .stage-viewport 立绘舞台   flex:1
+ *   .stage-bottom   底部对话区吸底
+ *
+ * 布局原则
+ *   对话框永远贴视口底部，不受立绘有无影响，不需要滚动。
+ *   选项排在对白框上方。
  */
 const fs = require('fs');
 const path = require('path');
@@ -14,6 +17,9 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const css = fs.readFileSync(path.join(ROOT, 'client/assets/css/main.css'), 'utf8');
 const play = fs.readFileSync(path.join(ROOT, 'client/assets/js/pages/play.js'), 'utf8');
+
+// 剥掉注释，避免注释里的属性名被当成真实规则
+const cc = css.replace(/\/\*[\s\S]*?\*\//g, '');
 
 let pass = 0, fail = 0;
 function check(name, cond, extra) {
@@ -23,58 +29,85 @@ function check(name, cond, extra) {
 
 console.log('\n=== 剧情页布局验证 ===\n');
 
-console.log('[1] 页面禁止滚动');
-check('存在 .page.stage-host 规则',
-  /\.page\.stage-host\s*\{[^}]*overflow:\s*hidden/.test(css),
-  '没有这条的话 .page 的 overflow-y:auto 会让立绘撑高后产生滚动条');
-check('play.js 给容器加了 stage-host',
-  /el\('div\.page\.stage-host'/.test(play),
-  'CSS 规则写了但 JS 没挂上class，等于没生效');
+console.log('[1] 三层结构');
+check('.stage-viewport 存在且 flex:1',
+  /\.stage-viewport\s*\{[^}]*flex:\s*1 1 auto/.test(cc),
+  '立绘区必须占据剩余空间');
+check('.stage-viewport 有 min-height:0',
+  /\.stage-viewport\s*\{[^}]*min-height:\s*0/.test(cc),
+  '缺这个 flex 子项不会被压缩，撑破布局');
+check('.stage-bottom 存在且不参与 flex 分配',
+  /\.stage-bottom\s*\{[^}]*flex:\s*0 0 auto/.test(cc));
+check('.stage-bottom 有 max-height 兜底',
+  /\.stage-bottom\s*\{[^}]*max-height/.test(cc));
+check('JS 按顺序挂载 viewport / bottom',
+  /stageViewport[\s\S]{0,200}dialogueArea[\s\S]{0,120}el\('div#stage'/.test(play),
+  'DOM 顺序必须是 top → viewport → bottom');
+check('立绘包在 viewport 里',
+  /el\('div\.stage-viewport',\s*portraitBox\)/.test(play));
+check('旧的 .dialogue-area 已移除',
+  !/dialogue-area/.test(cc) && !/dialogue-area/.test(play));
 
-console.log('\n[2] 立绘不再引起布局跳动');
-check('立绘区不再是 flex:1（改为 flex:1 1 auto）',
-  /\.portrait\s*\{[^}]*flex:\s*1 1 auto/.test(css),
-  'flex:1 会在内容消失时塌缩');
-check('定义 .portrait.empty 淡出态',
-  /\.portrait\.empty\s*\{[^}]*opacity:\s*0/.test(css));
-check('立绘区有 opacity 过渡',
-  /\.portrait\s*\{[^}]*transition:[^}]*opacity/.test(css),
-  '没有过渡就是瞬间消失，仍然会显得突兀');
-check('JS 用 classList 切换而非直接移除',
+console.log('\n[2] 立绘不再引起布局变化');
+check('.portrait 不再有 flex:1（会随内容塌缩）',
+  !/\.portrait\s*\{[^}]*flex:\s*1/.test(cc),
+  'flex:1 是这次布局崩掉的直接原因');
+check('.portrait 用 max-height 约束',
+  /\.portrait\s*\{[^}]*max-height:\s*100%/.test(cc));
+check('.portrait.empty 只是淡出',
+  /\.portrait\.empty\s*\{\s*opacity:\s*0/.test(cc));
+check('.portrait 有 opacity 过渡',
+  /\.portrait\s*\{[^}]*transition:[^}]*opacity/.test(cc));
+check('JS 用 classList 切换显隐',
   /classList\.add\('empty'\)/.test(play) && /classList\.remove\('empty'\)/.test(play));
-check('立绘图加了 .figure 动画类',
-  /img\.figure/.test(play) || /figureIn/.test(css));
 
-console.log('\n[3] 对白始终在视口内');
-check('对白框有 max-height 限制',
-  /\.dialogue-box\s*\{[^}]*max-height/.test(css),
-  '长对白会把框撑高，配合立绘就把内容推出屏幕');
-check('对白框内部可滚动',
-  /\.dialogue-box\s*\{[^}]*overflow-y:\s*auto/.test(css));
-check('max-height 用 vh 而非固定 px',
-  /max-height:\s*min\(\s*\d+vh/.test(css),
-  '固定 px 在不同屏幕上会不合适');
+console.log('\n[3] 对话框贴底且完整可见');
+check('.dialogue-box 没有 min-height',
+  !/\.dialogue-box\s*\{[^}]*min-height/.test(cc),
+  'min-height 会让短句也占一大块，底部留白');
+check('.dialogue-box 有 max-height',
+  /\.dialogue-box\s*\{[^}]*max-height/.test(cc));
+check('.dialogue-box 内部可滚动',
+  /\.dialogue-box\s*\{[^}]*overflow-y:\s*auto/.test(cc));
+check('.stage-bottom 用 flex-end 吸底',
+  /\.stage-bottom\s*\{[^}]*justify-content:\s*flex-end/.test(cc));
+check('.stage-bottom 底部有渐变衬底',
+  /\.stage-bottom\s*\{[^}]*linear-gradient/.test(cc));
 
-console.log('\n[4] 小屏适配');
-// 先剥掉注释，否则注释里提到的 display:none 会被误判成真实规则
-const cssNoComment = css.replace(/\/\*[\s\S]*?\*\//g, '');
-const mobileStart = cssNoComment.lastIndexOf('@media (max-width: 720px)');
-const mobileBlock = cssNoComment.slice(mobileStart);
-check('小屏不再 display:none 隐藏立绘',
-  !/\.portrait\s*\{[^}]*display:\s*none/.test(mobileBlock),
-  '手机上彻底没立绘，和桌面端体验不一致');
-check('小屏给立绘固定高度比例',
-  /\.portrait\s*\{[^}]*height:\s*\d+vh/.test(mobileBlock));
-check('有超矮屏适配（横放手机）',
-  /@media \(max-height: \d+px\)/.test(cssNoComment));
+console.log('\n[4] 选项在对话框上方');
+check('UI.mount 传入 [list, box]（选项在前）',
+  /UI\.mount\(dialogueArea,\s*\[list,\s*box\]\)/.test(play),
+  '顺序反了的话选项又会跑到对白下面');
+check('.choice-box 紧贴对白框（margin-bottom 很小）',
+  /\.choice-box\s*\{[^}]*margin:\s*0 auto 1[0-9]px/.test(cc));
 
-console.log('\n[5] 未破坏原有功能');
-check('#stage 仍是全屏 flex 容器',
-  /#stage\s*\{[^}]*height:\s*100%/.test(css) && /#stage\s*\{[^}]*display:\s*flex/.test(css));
-check('立绘淡入动画保留',
-  /@keyframes riseIn/.test(css));
-check('背景图逻辑未动',
+console.log('\n[5] 页面禁止整体滚动');
+check('.page.stage-host overflow:hidden',
+  /\.page\.stage-host\s*\{[^}]*overflow:\s*hidden/.test(cc));
+check('JS 容器带 stage-host',
+  /el\('div\.page\.stage-host'/.test(play));
+
+console.log('\n[6] 小屏适配');
+const mStart = cc.lastIndexOf('@media (max-width: 720px)');
+const mBlock = cc.slice(mStart);
+check('小屏不再隐藏立绘',
+  !/\.portrait\s*\{[^}]*display:\s*none/.test(mBlock));
+check('小屏收紧 stage-bottom',
+  /\.stage-bottom\s*\{[^}]*max-height/.test(mBlock));
+check('有超矮屏适配',
+  /@media \(max-height: \d+px\)/.test(cc));
+
+console.log('\n[7] 未破坏原有功能');
+check('#stage 仍是全屏 flex',
+  /#stage\s*\{[^}]*height:\s*100%/.test(cc) && /#stage\s*\{[^}]*display:\s*flex/.test(cc));
+check('背景图逻辑保留',
   /renderScene/.test(play) && /bgImage/.test(play));
+check('立绘 fallback 逻辑保留',
+  /img\.addEventListener\('error'/.test(play));
+check('键盘快捷选项保留',
+  /document\.onkeydown/.test(play));
+check('结局遮罩仍可滚动',
+  /\.ending-overlay\s*\{[^}]*overflow-y:\s*auto/.test(cc));
 
 console.log('\n' + '='.repeat(52));
 console.log(fail === 0 ? `  全部通过 ${pass} 项` : `  通过 ${pass} / 失败 ${fail}`);

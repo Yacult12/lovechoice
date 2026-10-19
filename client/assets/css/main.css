@@ -412,66 +412,82 @@ a { color: var(--accent); text-decoration: none; }
 }
 
 /* 立绘 */
+/* ---------- 立绘舞台 ----------
+ *
+ * 关键：立绘区必须始终占据「视口底部以上、对话区以上」的固定空间，
+ * 与有没有立绘无关。
+ *
+ * 之前用 flex:1 1 auto 让高度随内容变化，于是：
+ *   - 有立绘时图片撑高 → 高度暴涨 → 对话框被挤出屏幕（第一张图）
+ *   - 无立绘时内容为空 → 高度塌成 0 → 对话框贴到顶部，下面全空（第二张图）
+ * 两种情况都需要滚动才看得到对话，非常糟。
+ *
+ * 现在改成固定比例的独立区域，对话区吸底，永远可见。
+ */
+.stage-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+}
+
 .portrait {
   position: relative; z-index: 3;
-  flex: 1 1 auto; display: flex; align-items: flex-end; justify-content: center;
-  min-height: 0; padding: 0 20px;
-  /*
-   * 立绘区永远占位，只是里面的图淡入淡出。
-   *
-   * 之前是 UI.mount(portraitBox, null) 把 img整个移除，
-   * 于是这一块的 flex-basis 立刻塌缩 → 对白整体上跳，
-   * 下一句有立绘又撑回来，形成「抽搐」。
-   * 现在保留占位、用 opacity 切换，布局一动不动。
-   */
-  transition: opacity .34s var(--ease);
-}
-.portrait img {
-  max-height: 100%; max-width: 100%;
-  filter: drop-shadow(0 24px 46px rgba(0, 0, 0, 0.55));
-  animation: riseIn 0.55s var(--ease);
-}
-@keyframes riseIn { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
-
-/* 立绘入场/退场：只改透明度与轻微位移，不影响布局 */
-.portrait .figure {
-  animation: figureIn .38s var(--ease);
-  transition: opacity .34s var(--ease), transform .34s var(--ease);
+  max-width: 100%;
+  max-height: 100%;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 0 20px;
+  /* 无立绘时淡出，但保留占位，绝不塌缩 */
+  transition: opacity .32s var(--ease);
 }
 .portrait.empty { opacity: 0; }
+
+.portrait img.figure {
+  max-height: 100%; max-width: 100%;
+  filter: drop-shadow(0 24px 46px rgba(0, 0, 0, 0.55));
+  animation: figureIn .4s var(--ease);
+}
 @keyframes figureIn {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: none; }
 }
 
-/* 对白区 */
-.dialogue-area {
-  position: relative; z-index: 5; flex: 0 0 auto;
-  padding: 0 20px 22px;
+/* ---------- 底部对话区 ----------
+ *
+ * 对话区是固定层，永远贴着视口底部。
+ * 不参与 flex 高度分配，因此立绘怎么变都影响不到它。
+ */
+.stage-bottom {
+  position: relative; z-index: 5;
+  flex: 0 0 auto;
+  max-height: 62vh;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 0 20px 20px;
+  background: linear-gradient(180deg, transparent, rgba(5, 4, 9, 0.55) 40%);
+  pointer-events: none;   /* 让上半部分空白区能透出点击 */
 }
+.stage-bottom > * { pointer-events: auto; }
 .chapter-hint { text-align: center; font-size: 12px; color: var(--text-faint); margin-bottom: 10px; letter-spacing: 2px; }
 
 .dialogue-box {
   max-width: 900px; margin: 0 auto;
-  background: rgba(10, 9, 16, 0.82);
+  background: rgba(10, 9, 16, 0.86);
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
-  padding: 22px 26px;
+  padding: 20px 24px;
   backdrop-filter: blur(16px);
   box-shadow: var(--shadow);
-  min-height: 128px;
   cursor: pointer;
   transition: border-color 0.25s var(--ease);
-
   /*
-   * 对白框永远留在视口内。
-   *
-   * 长文本会把 min-height 顶高，如果 .portrait 占了太多空间，
-   * 整个对白框会被推到屏幕外 —— 玩家必须拖滚动条才看得到。
-   * 限制最大高度 + 内部可滚动，保证对白始终可见；
-   * 立绘区flex-shrink 会自动让出空间，不会把它挤出去。
+   * 高度贴着内容走。
+   * 之前有 min-height:128px，短句时会留一大块空白，
+   * 加上立绘又把整体撑出视口 —— 现在没有最小高度，
+   * 对白框随内容伸缩，并由 .stage-bottom 吸在底部。
    */
-  max-height: min(46vh, 420px);
+  max-height: 40vh;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -483,22 +499,33 @@ a { color: var(--accent); text-decoration: none; }
 }
 .dialogue-box .speaker.male { background: var(--male-soft); color: #a9c3ff; border-color: rgba(91, 140, 255, 0.4); }
 .dialogue-box .speaker.female { background: var(--female-soft); color: #ffb3cd; border-color: rgba(255, 123, 168, 0.4); }
-.dialogue-box .text { font-size: 16.5px; line-height: 1.95; min-height: 62px; white-space: pre-wrap; }
+.dialogue-box .text { font-size: 16.5px; line-height: 1.9; min-height: 48px; white-space: pre-wrap; }
 .dialogue-box .text.narration { color: #d5cfe6; font-style: italic; }
 .dialogue-box .caret { display: inline-block; width: 8px; height: 17px; margin-left: 3px; background: var(--accent); vertical-align: -2px; animation: blink 0.9s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 .dialogue-box .next-hint { text-align: right; font-size: 12px; color: var(--text-faint); margin-top: 8px; }
 
-/* 选项区 */
-.choice-box { max-width: 900px; margin: 0 auto 14px; display: grid; gap: 10px; }
+/* ---------- 选项区 ----------
+ *
+ * 选项排在对白框**上方**。
+ *
+ * 原来对白在上、选项在下面，读完文字要往下看才知道要选什么；
+ * 反过来之后，选择和它的语境贴在一起，决策更快。
+ */
+.choice-box {
+  max-width: 900px; margin: 0 auto 12px;
+  display: grid; gap: 9px;
+}
 .choice-prompt { text-align: center; font-size: 14px; color: var(--text-dim); margin-bottom: 4px; }
 .choice-btn {
   position: relative; overflow: hidden;
-  text-align: left; padding: 15px 20px;
-  background: rgba(12, 11, 20, 0.8);
+  text-align: left; padding: 13px 18px;
+  background: rgba(12, 11, 20, 0.86);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  font-size: 15px; line-height: 1.6;
+  font-size: 15px; line-height: 1.55;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
   transition: all 0.22s var(--ease);
   animation: choiceIn 0.36s var(--ease) backwards;
 }
@@ -678,25 +705,23 @@ a { color: var(--accent); text-decoration: none; }
    *
    * 之前 .portrait { display:none } 会让立绘在手机上彻底消失 ——
    * 但桌面端有立绘、手机端没有，玩家会觉得是两个游戏。
-   * 改成保留但压扁：给一个固定高度的比例，立绘缩小显示。
+   * 现在保留但压缩：立绘区仍在舞台上，只是比例小一些。
    */
-  .portrait {
-    display: flex;
-    flex: 0 1 auto;
-    height: 34vh;
-    min-height: 150px;
-    padding: 0 10px;
-  }
-  .portrait img { max-height: 100%; }
+  .stage-bottom { max-height: 68vh; padding: 0 10px 14px; }
+  .portrait { padding: 0 10px; }
 
   /* 顶栏按钮换行时不要把对白挤出屏幕 */
   .stage-top { row-gap: 6px; }
-  .dialogue-box { min-height: 108px; }
+  .dialogue-box { padding: 15px 17px; max-height: 34vh; }
+  .dialogue-box .text { font-size: 15.5px; min-height: 42px; }
+  .choice-btn { padding: 11px 14px; font-size: 14.5px; }
 }
 
 /* 超矮屏（横放手机等）：进一步压缩立绘区 */
 @media (max-height: 560px) {
-  .portrait { height: 26vh; min-height: 96px; }
-  .dialogue-box { min-height: 84px; padding: 14px 16px; }
-  .dialogue-box .text { font-size: 14.5px; }
+  .stage-bottom { max-height: 74vh; padding-bottom: 10px; }
+  .dialogue-box { padding: 12px 15px; max-height: 30vh; }
+  .dialogue-box .text { font-size: 14.5px; min-height: 34px; line-height: 1.75; }
+  .choice-btn { padding: 9px 12px; font-size: 14px; }
+  .stage-top { padding: 7px 12px; }
 }

@@ -20,12 +20,21 @@
     var isMale = routeCode === 'male';
 
     // ---------- DOM 骨架 ----------
+    //
+    // 布局分三层，自上而下：
+    //   .stage-top      顶部操作栏（好感度、设置等）
+    //   .stage-viewport 立绘舞台（flex:1，剩余空间全给它）
+    //   .stage-bottom   底部对话区（吸底，不参与 flex 分配）
+    //
+    // 这样立绘无论出现还是消失，都不会影响对话区的位置 ——
+    // 对话框永远贴在视口底部，不会被顶出去，也不需要滚动。
     var bg = el('div.scene-bg');
     var stageTop = el('div.stage-top');
     var portraitBox = el('div.portrait');
-    var dialogueArea = el('div.dialogue-area');
+    var stageViewport = el('div.stage-viewport', portraitBox);
+    var dialogueArea = el('div.stage-bottom');
     var gestureTray = el('div.gesture-tray');
-    var stage = el('div#stage', [bg, stageTop, portraitBox, dialogueArea, gestureTray]);
+    var stage = el('div#stage', [bg, stageTop, stageViewport, dialogueArea, gestureTray]);
 
     // stage-host 让 .page 关闭滚动 —— 剧情页是全屏舞台，
 // 立绘出现/消失不应该改变页面高度、更不该要求玩家拖滚动条。
@@ -603,7 +612,8 @@ var page = el('div.page.stage-host', stage);
       stopTyping();
       S.typingDone = true;
 
-      var box = el('div.dialogue-box', { style: { marginBottom: '14px' } }, [
+      // 对白框：不再加 margin-bottom，因为选项已经排在它上面了
+      var box = el('div.dialogue-box', [
         node.speaker ? el('div.speaker.' + speakerTone(node.speaker), node.speaker) : null,
         el('div.text' + (UI.speakerClass(node.speaker) === 'narration' ? '.narration' : ''),
           UI.renderText(node.content || '你要怎么做？'))
@@ -626,7 +636,9 @@ var page = el('div.page.stage-host', stage);
         ]);
       }));
 
-      UI.mount(dialogueArea, [box, list]);
+      // 顺序：先选项，后对白框。
+      // 选择项贴在语境上方，读完就选，不必低头找按钮。
+      UI.mount(dialogueArea, [list, box]);
 
       // 键盘 1-9 快速选项
       document.onkeydown = function (e) {
