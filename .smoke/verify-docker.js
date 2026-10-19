@@ -108,11 +108,31 @@ soft('.dockerignore 保留 .env.example', /!\.env\.example/.test(di));
 console.log('\n[5] client/Dockerfile');
 const frontDf = read('client/Dockerfile');
 check('基于 nginx', /FROM nginx/.test(frontDf));
-check('拷贝 nginx 配置', /COPY docker\/nginx\.conf/.test(frontDf));
+check('拷贝 nginx 配置', /nginx\.conf/.test(frontDf));
 check('拷贝静态资源', /COPY client\//.test(frontDf));
-check('拷贝运行时配置', /docker\/config\.js/.test(frontDf));
+check('拷贝运行时配置', /config\.js/.test(frontDf));
 check('暴露 80', /EXPOSE 80/.test(frontDf));
 soft('有 HEALTHCHECK', /HEALTHCHECK/.test(frontDf));
+
+// build context 为仓库根时，Dockerfile 里所有 COPY 源路径
+// 都必须真实存在于仓库中 —— 这类错误本地静态检查看不出来，
+// 只有 docker build 时才报 "not found"，白等好几分钟。
+const frontContextIsRoot = /context:\s*\.\s*\n\s*dockerfile:\s*client\/Dockerfile/.test(compose);
+if (frontContextIsRoot) {
+  console.log('\n[5b] COPY 路径与 build context 匹配性');
+  const copies = [...frontDf.matchAll(/^COPY\s+(?:--from=\S+\s+)?(\S+)\s+/gm)]
+    .map((m) => m[1])
+    .filter((p) => !p.includes('/app/') && !p.startsWith('/'));
+  check('找到了 COPY 指令', copies.length > 0, '一条都没有');
+  copies.forEach((src) => {
+    const p = path.join(ROOT, src.replace(/\/$/, ''));
+    check(`COPY 源存在: ${src}`, fs.existsSync(p),
+      `build context 是仓库根，但 ${src} 不在仓库里`);
+  });
+  check('COPY 路径均带 client/ 前缀',
+    copies.every((s) => s.startsWith('client/')),
+    'context 为仓库根时漏了前缀，构建会报 not found');
+}
 check('build context 与 COPY 路径匹配',
   /context:\s*\.\s*\n\s*dockerfile:\s*client\/Dockerfile/.test(compose) && /COPY client\//.test(frontDf),
   'context 为仓库根时必须 COPY client/…');

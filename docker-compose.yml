@@ -33,6 +33,15 @@ services:
       - --collation-server=utf8mb4_unicode_ci
       # 初始化排序规则统一用 unicode_ci，和 schema.sql 里保持一致
       - --default-authentication-plugin=mysql_native_password
+      # ---- 内存限制 ----
+      # 2核2G 的机器（可用内存约 1.3G）上，MySQL 默认配置会占用过多，
+      # 再叠加 Node + nginx 三个容器，很容易触发 OOM 被内核杀掉
+      # （表现为容器莫名重启、日志里出现 "Killed process"）。
+      # InnoDB 缓冲池压到 64M，够这个项目的数据量（不到 10MB）用。
+      - --innodb-buffer-pool-size=64M
+      - --innodb-log-buffer-size=8M
+      - --max-connections=50
+      - --performance-schema=OFF
 
     volumes:
       - mysql-data:/var/lib/mysql

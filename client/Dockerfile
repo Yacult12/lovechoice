@@ -9,13 +9,20 @@
 
 FROM nginx:1.27-alpine AS runtime
 
+# ⚠️ 下面所有 COPY 路径都相对于 **build context**，
+# 而 docker-compose.yml 里 frontend 的 context 是仓库根（.），
+# 所以路径必须带 client/ 前缀，否则构建会报
+#   failed to compute cache key: "/docker/nginx.conf": not found
+#
+# 如果改成 context: ./client，就要把这些前缀去掉。
+
 # nginx 站点配置：静态托管 + /api 反向代理到后端
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY client/docker/nginx.conf /etc/nginx/conf.d/default.conf
 
 COPY client/ /usr/share/nginx/html/
 
 # 运行时配置默认值（compose 会用挂载覆盖）
-COPY docker/config.js /usr/share/nginx/html/config.js
+COPY client/docker/config.js /usr/share/nginx/html/config.js
 
 EXPOSE 80
 
