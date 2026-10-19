@@ -59,6 +59,24 @@
     typingSpeed: function () { return read('typingSpeed', 'normal'); },
     setTypingSpeed: function (v) { write('typingSpeed', v); },
 
+    // ---------- 对方名字（开局设置，纯本地） ----------
+    // 存localStorage 而不进数据库：
+    //   1. 名字只影响显示，不参与任何游戏逻辑或服务端校验；
+    //   2. 同一个账号在演示机上换名字，不该影响别人的存档；
+    //   3. 避免为了一个装饰性字段改users 表结构和所有相关接口。
+    // 真正的名字替换在UI.renderText() 里做（见 ui.js）。
+    partnerName: function () { return read('partnerName', ''); },
+    setPartnerName: function (v) { write('partnerName', String(v || '').slice(0, 12)); },
+    clearPartnerName: function () { drop('partnerName'); },
+
+    // ---------- 背景音乐偏好 ----------
+    musicOn: function () {
+      // 默认开启，但读过一次 localStorage 后以用户选择为准
+      var v = read('musicOn', null);
+      return v === null ? true : !!v;
+    },
+    setMusicOn: function (v) { write('musicOn', !!v); },
+
     // ---------- 路由缓存（列表页数据） ----------
     routesCache: function () { return read('routesCache', null); },
     setRoutesCache: function (v) { write('routesCache', v); }

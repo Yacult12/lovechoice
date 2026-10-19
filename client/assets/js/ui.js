@@ -266,6 +266,44 @@
     return '';
   }
 
+  /**
+   * 替换对白/旁白里的角色称呼。
+   *
+   * 剧本里「他」「她」是固定的代词，开局让玩家填一个名字后，
+   * 这里把代词换成真名，让文本读起来像在说具体的人。
+   *
+   * 规则（从长到短，避免「她」先被替换掉影响后面的匹配）：
+   *   「他们」→「名字们」   —— 复数场景，含她的多人场合
+   *   「她」  → 名字         —— 女主视角的对方
+   *   「他」  → 名字         —— 男主视角的对方
+   *
+   * 只替换独立出现的代词，不动「其他」「他们俩」之外的组合，
+   * 且跳过已含名字的文本（避免二次替换把名字本身再替一遍）。
+   *
+   * @param {string} text 原始文本
+   * @param {string} name 玩家设置的名字；为空时原样返回
+   */
+  function renderText(text, name) {
+    if (!text) return text;
+    var n = (name === undefined || name === null)
+      ? (global.Store && global.Store.partnerName ? global.Store.partnerName() : '')
+      : String(name).trim();
+    if (!n) return text;
+
+    // 已经是名字了（说明替换过一次），跳过，防止套娃
+    if (text.indexOf(n) !== -1 && !/「/.test(text)) return text;
+
+    // 依次替换长的在前
+    var out = text;
+    if (global.Store) {
+      var alias = n;
+      if (out.indexOf('他们') !== -1) out = out.split('他们').join(alias + '们');
+      if (out.indexOf('她') !== -1) out = out.split('她').join(alias);
+      if (out.indexOf('他') !== -1) out = out.split('他').join(alias);
+    }
+    return out;
+  }
+
   global.UI = {
     el: el, append: append, mount: mount, clear: clear, $: $, $$: $$,
     toast: toast, modal: modal, closeAllModals: closeAllModals,
@@ -273,6 +311,7 @@
     deltaText: deltaText, deltaClass: deltaClass, initials: initials,
     escapeHtml: escapeHtml, loading: loading, empty: empty,
     bgStyle: bgStyle, bgImage: bgImage, assetUrl: assetUrl,
+    renderText: renderText,
     BG_IMAGES: BG_IMAGES, speakerClass: speakerClass
   };
 })(window);

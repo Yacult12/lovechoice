@@ -7,6 +7,63 @@
 
   var ICONS = { male: '♂', female: '♀' };
 
+  /**
+   * 打开「设置对方名字」弹窗。
+   * 保存后立即刷新页面上所有已渲染的对白预览（如果有）。
+   */
+  function openNameModal(onSaved) {
+    var cur = Store.partnerName();
+    var input;
+
+    UI.modal({
+      title: '设置对方的名字',
+      closable: true,
+      body: el('div', [
+        el('p.small.muted.mb-16',
+          '剧本里原本用「他」「她」来指代对方。填一个名字后，' +
+          '所有对白和旁白都会换成这个名字，看起来更像在说具体的人。'),
+        el('div.field', [
+          el('label', 'TA 的名字'),
+          (input = el('input.input#f-partner', {
+            type: 'text',
+            maxlength: '12',
+            placeholder: '例如：小满、阿泽、她',
+            value: cur,
+            autocomplete: 'off'
+          }))
+        ]),
+        el('div.tiny.faint', '最多 12 个字。留空则沿用剧本里的「他 / 她」。')
+      ]),
+      confirmText: '保 存',
+      cancelText: '取 消',
+      onConfirm: function () {
+        var v = (input.value || '').trim().slice(0, 12);
+        Store.setPartnerName(v);
+        UI.toast(v ? '之后的对白会显示「' + v + '」' : '已还原为「他 / 她」', 'ok');
+        if (onSaved) onSaved(v);
+      }
+    });
+
+    setTimeout(function () { if (input) input.focus(); }, 60);
+  }
+
+  /** 顶部的名字设置卡片 */
+  function nameCard() {
+    var cur = Store.partnerName();
+    return el('div.card.mb-16', [
+      el('div.row.wrap', [
+        el('div', { style: { flex: '1', minWidth: '220px' } }, [
+          el('div.small.muted', '对方的名字'),
+          el('div.mt-4', cur
+            ? el('span.tag.ok', { style: { fontSize: '14px' } }, cur)
+            : el('span.tag', { style: { fontSize: '14px' } }, '未设置（对白里显示「他 / 她」）'))
+        ]),
+        el('button.btn.btn-sm', { onclick: function () { openNameModal(); } },
+          cur ? '修改' : '现在设置')
+      ])
+    ]);
+  }
+
   function render(root, ctx) {
     root.innerHTML = '';
     var wrap = el('div.page-inner');
@@ -53,6 +110,8 @@
         UI.mount(wrap, [
           el('div.page-title', '选择一条故事线'),
           el('div.page-sub', '同一个故事，从两个人的视角各走一遍 —— 你们的好感，会各自留下不同的痕迹。'),
+
+          nameCard(),
 
           el('div.grid.grid-2', routes.map(function (r) {
             var st = statOf(r.routeCode) || {};
@@ -109,5 +168,5 @@
       });
   }
 
-  global.PageRoutes = { render: render };
+  global.PageRoutes = { render: render, openNameModal: openNameModal };
 })(window);

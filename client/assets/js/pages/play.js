@@ -73,6 +73,24 @@
           S.save.playSeconds ? el('div', '⏱ ' + UI.fmtDuration(S.save.playSeconds)) : null
         ]) : null,
 
+        // 对方的名字：点一下可随时改，改完立刻重画当前这句对白
+        el('button.btn.btn-sm.btn-ghost', {
+          title: '设置对方的名字',
+          onclick: function () {
+            openName();
+          }
+        }, '✎ ' + (Store.partnerName() || '名字')),
+
+        el('button.btn.btn-sm.btn-ghost', {
+          title: global.Music && Music.isOn() ? '关闭背景音乐' : '开启背景音乐',
+          onclick: function () {
+            if (!global.Music) return;
+            var on = Music.toggle();
+            renderTop();
+            UI.toast(on ? '背景音乐已开启' : '背景音乐已关闭');
+          }
+        }, global.Music && Music.isOn() ? '🔊' : '🔇'),
+
         el('button.btn.btn-sm.btn-ghost', {
           title: S.showAff ? '隐藏好感度' : '查看好感度',
           onclick: function () {
@@ -108,6 +126,48 @@
 
     function speedLabel(v) {
       return v === 'fast' ? '快' : v === 'slow' ? '慢' : '正常';
+    }
+
+    /**
+     * 改名字的弹窗入口。
+     * 保存后重画当前节点 —— 不重画的话，玩家会看到「他」突然变成新名字，
+     * 但已经打出来的半句还是旧的，很出戏。
+     */
+    function openName() {
+      var cur = Store.partnerName();
+      var input;
+
+      UI.modal({
+        title: '设置对方的名字',
+        body: el('div', [
+          el('p.small.muted.mb-16',
+            '剧本里用「他」「她」指代对方。填入名字后，所有对白和旁白都会替换成这个名字。'),
+          el('div.field', [
+            el('label', 'TA 的名字'),
+            (input = el('input.input#f-partner-play', {
+              type: 'text', maxlength: '12', placeholder: '留空则用「他 / 她」',
+              value: cur, autocomplete: 'off'
+            }))
+          ]),
+          el('div.tiny.faint', '最多 12 个字')
+        ]),
+        confirmText: '保 存',
+        cancelText: '取 消',
+        onConfirm: function () {
+          var v = (input.value || '').trim().slice(0, 12);
+          Store.setPartnerName(v);
+          UI.toast(v ? '之后的对白会显示「' + v + '」' : '已还原为「他 / 她」', 'ok');
+          // 重画当前这句，让替换立刻可见
+          if (S.node) {
+            stopTyping();
+            S.typingDone = true;
+            renderDialogueOrChoice(S.node);
+          }
+          renderTop();
+        }
+      });
+
+      setTimeout(function () { if (input) input.focus(); }, 60);
     }
 
     function affBar(side, label) {
@@ -260,7 +320,8 @@
     function renderDialogue(node) {
       stopTyping();
       var isNarration = UI.speakerClass(node.speaker) === 'narration';
-      var text = node.content || '';
+      // 走 renderText：把剧本里的「他」「她」换成玩家设置的名字
+      var text = UI.renderText(node.content || '');
 
       var textNode = el('div.text' + (isNarration ? '.narration' : ''));
       var nextHint = el('div.next-hint', '点击继续 ▾');
@@ -482,7 +543,7 @@
       var who = g.effect.female >= g.effect.male ? '她' : '他';
       var box = el('div.dialogue-box.gesture-reply', [
         el('div.speaker.' + (who === '她' ? 'female' : 'male'), '❝ ' + g.label),
-        el('div.text', g.reply),
+        el('div.text', UI.renderText(g.reply)),
         el('div.next-hint', '点击继续 ▾')
       ]);
 
@@ -534,7 +595,7 @@
       var box = el('div.dialogue-box', { style: { marginBottom: '14px' } }, [
         node.speaker ? el('div.speaker.' + speakerTone(node.speaker), node.speaker) : null,
         el('div.text' + (UI.speakerClass(node.speaker) === 'narration' ? '.narration' : ''),
-          node.content || '你要怎么做？')
+          UI.renderText(node.content || '你要怎么做？'))
       ]);
 
       var list = el('div.choice-box', (node.options || []).map(function (opt, idx) {
@@ -722,7 +783,8 @@
           endingStats(data),
           el('div.row', { style: { justifyContent: 'center' } }, [
             el('button.btn.btn-primary', { onclick: function () { restart(); } }, '重新开始这条线'),
-            el('button.btn', { onclick: backToRoutes }, '回到故事线')
+            el('button.btn', { onclick: backToRoutes }, '回到故事线'),
+            el('button.btn.btn-ghost', { onclick: function () { backToStart(); } }, '🏠 回到开始界面')
           ])
         ]));
         stage.appendChild(none);
@@ -738,7 +800,10 @@
         el('div.row', { style: { justifyContent: 'center', flexWrap: 'wrap' } }, [
           el('button.btn.btn-primary', { onclick: function () { restart(); } }, '再走一遍'),
           el('button.btn', { onclick: function () { global.App.go('gallery', { routeCode: routeCode }); } }, '结局图鉴'),
-          el('button.btn.btn-ghost', { onclick: backToRoutes }, '返回')
+          el('button.btn.btn-ghost', { onclick: backToRoutes }, '返回'),
+          // 「回到开始界面」：清空当前状态，回到故事线选择页，
+          // 让玩家可以换一条线或改名字重新开始，而不用手动退出。
+          el('button.btn.btn-ghost', { onclick: function () { backToStart(); } }, '🏠 回到开始界面')
         ])
       ]));
       stage.appendChild(card);
@@ -769,7 +834,8 @@
         el('div.row', { style: { justifyContent: 'center', flexWrap: 'wrap' } }, [
           el('button.btn.btn-primary', { onclick: function () { restart(); } }, '重新开始'),
           el('button.btn', { onclick: function () { global.App.go('saves'); } }, '换个档位'),
-          el('button.btn.btn-ghost', { onclick: backToRoutes }, '回到故事线')
+          el('button.btn.btn-ghost', { onclick: backToRoutes }, '回到故事线'),
+          el('button.btn.btn-ghost', { onclick: function () { backToStart(); } }, '🏠 回到开始界面')
         ])
       ]));
       stage.appendChild(card);
@@ -794,6 +860,28 @@
     function backToRoutes() {
       document.onkeydown = null;
       global.App.go('routes');
+    }
+
+    /**
+     * 「回到开始界面」—— 从结局/结束画面回到故事线选择页，
+     * 并顺手把这一局的临时状态清干净。
+     *
+     * 和「返回」的区别：
+     *   返回       —— 只跳转，保留上次选的线路和档位
+     *   回到开始   —— 清掉「上次线路」，下次进游戏停在故事线页由玩家重新选，
+     *                同时清掉本章过场标记，避免下次进同一档还弹「第一章」。
+     *
+     * 注意不清存档数据 —— 结局解锁记录和存档要保留，
+     * 否则玩家会发现自己的收集被清空了。
+     */
+    function backToStart() {
+      document.onkeydown = null;
+      // 清掉章节过场标记，让下次进入第一章时正常播过场
+      Store.resetChapterSeen(routeCode, slot);
+      // 不清 lastRoute —— 保留玩家上次的线路选择，
+      // 只是回到故事线页（那里是选择页，不是剧情页）。
+      global.App.go('routes');
+      UI.toast('已回到开始界面', 'ok', 1600);
     }
 
     // ============================================================

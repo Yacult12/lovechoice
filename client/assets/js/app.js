@@ -169,6 +169,13 @@
   window.addEventListener('hashchange', render);
   global.App = { go: go, onLeave: onLeave, current: current, routes: ROUTES };
 
+  // 背景音乐：进入应用即启动，之后常驻循环，不随路由变化。
+  // 放在 render() 之前 —— 首次渲染可能直接跳登录页，
+  // 用户此时还没交互，play() 会被浏览器策略拒绝。
+  // Music.init 内部注册了 pointerdown / keydown 兜底，
+  // 用户点「注册」按钮时会自动补上播放。
+  if (global.Music && Music.init) Music.init();
+
   // 首次进入：没 hash 就给一个默认
   if (!location.hash) location.hash = API.isLoggedIn() ? '#/routes' : '#/auth';
   render();
