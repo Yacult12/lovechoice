@@ -566,23 +566,51 @@ a { color: var(--accent); text-decoration: none; }
  * 卡片永远从顶部开始排，内容超出时整个遮罩可以滚动，按钮一定能点到。
  */
 .ending-overlay {
-  position: absolute; inset: 0; z-index: 40;
+  /*
+   * ⚠️ 必须用 fixed，不能用 absolute。
+   *
+   * absolute 的定位基准是最近的positioned 祖先，这里是 #stage。
+   * 而 #stage 是 flex 列容器，高度靠子元素撑：
+   * 顶部栏 + 视口 + 对白框 —— 它们的合计在实测中只有 180~320px，
+   * 远小于桌面视口（1080px）。于是遮罩被压成两百多像素高，
+   * 卡片（460~490px）有一大半落在遮罩之外，
+   * 再被 #stage 的 overflow:hidden 一刀切掉 ——
+   * 表现就是「标题和好感值看得见，按钮和下方全没了」。
+   *
+   * 手机端看起来正常，是因为竖屏下这些子元素合计高度
+   * 恰好接近视口高，巧合而已。
+   *
+   * fixed 的基准是视口，与内部布局彻底解耦。
+   */
+  position: fixed; inset: 0; z-index: 40;
   display: flex;
-  align-items: flex-start;      /* 顶部对齐，短卡片时靠 margin:auto 居中 */
+  align-items: center;          /* 垂直居中 */
   justify-content: center;
-  overflow-y: auto;             /* 卡片超高时可滚动 */
-  overscroll-behavior: contain; /* 滚到底不要连带拖动背后的页面 */
+  overflow-y: auto;             /* 卡片比视口还高时整体可滚 */
+  overscroll-behavior: contain;
   padding: 30px 20px;
+  /* 键盘弹出时（安卓）不要被顶飞 */
+  padding-bottom: max(30px, env(safe-area-inset-bottom));
   background: radial-gradient(circle at 50% 45%, rgba(11, 10, 16, 0.86), rgba(5, 4, 9, 0.97));
   backdrop-filter: blur(8px);
   animation: fadeIn 0.7s var(--ease);
 }
-.ending-overlay > .ending-card { margin: auto; }  /* 卡片够矮时依然视觉居中 */
+/*
+ * 卡片高于视口时：align-items:center 会让上下都溢出且无法滚动到顶，
+ * 所以改成 flex-start，让内容从顶部开始排，由遮罩负责滚动。
+ */
+.ending-overlay { align-items: flex-start; }
+.ending-overlay > .ending-card { margin: auto; }  /* 不够高时仍视觉居中 */
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 .ending-card {
   width: 100%; max-width: 520px; text-align: center;
   flex: 0 0 auto;              /* 防止 flex 容器把卡片压扁 */
+  /* 极端情况下（超矮窗口 + 大字号）卡片自己也能滚，
+     不让遮罩出现「滚不动又点不到」的夹层 */
+  max-height: calc(100dvh - 60px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 38px 34px; border-radius: var(--radius-l);
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border);

@@ -109,6 +109,28 @@ check('键盘快捷选项保留',
 check('结局遮罩仍可滚动',
   /\.ending-overlay\s*\{[^}]*overflow-y:\s*auto/.test(cc));
 
+/*
+ * 结局遮罩必须用 fixed，不能用 absolute。
+ *
+ * 踩过的坑：absolute 的定位基准是 #stage，而 #stage 是 flex 列容器，
+ * 高度只由「顶栏 + 视口 + 对白框」撑开 —— 实测桌面视口 1080px 时
+ * #stage 只有 232px 高。结局卡片 462px，于是一多半落在遮罩之外，
+ * 被 #stage 的 overflow:hidden 裁掉：标题和好感值看得见，
+ * 按钮和下方全没了。
+ *
+ * 手机端看着正常是巧合 —— 竖屏下那几个子元素合计高度恰好接近视口高。
+ * 这类「只在桌面复现」的 bug，必须靠断言钉死，不能靠肉眼。
+ */
+check('结局遮罩用 fixed（不能是 absolute）',
+  /\.ending-overlay\s*\{[^}]*position:\s*fixed/.test(cc),
+  '用 absolute 会以 #stage 为基准，桌面端 #stage 高度塌陷导致卡片被裁');
+check('结局遮罩未退回 absolute',
+  !/\.ending-overlay\s*\{[^}]*position:\s*absolute/.test(cc),
+  'absolute 是这个 bug 的根因');
+check('结局卡片有 max-height 兜底',
+  /\.ending-card\s*\{[^}]*max-height:\s*calc\(100dvh/.test(cc),
+  '超矮窗口下卡片自身需要能滚，否则遮罩和卡片形成夹层');
+
 console.log('\n' + '='.repeat(52));
 console.log(fail === 0 ? `  全部通过 ${pass} 项` : `  通过 ${pass} / 失败 ${fail}`);
 console.log('='.repeat(52));
