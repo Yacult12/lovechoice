@@ -165,6 +165,7 @@
       return request('GET', '/api/story/routes/' + encodeURIComponent(code) + '/validate', null);
     },
     endings: function (code) { return request('GET', '/api/story/endings', null, { query: { routeCode: code } }); },
+    insights: function () { return request('GET', '/api/story/insights', null); },
 
     // ---- play ----
     start: function (b) { return request('POST', '/api/play/start', b); },

@@ -64,6 +64,33 @@
     ]);
   }
 
+  /**
+   * 导语卡片。
+   *
+   * 文案来自 /api/story/insights（和章节启示同一个接口）。
+   * 先渲染一个占位骨架，等接口回来再填 —— 避免为了几行字阻塞整页。
+   */
+  function prologueCard() {
+    var box = el('div.prologue', [
+      el('div.pk', '导语'),
+      el('div.pc', ' ')
+    ]);
+    if (!API.insights) return box;
+
+    API.insights()
+      .then(function (data) {
+        var p = data && data.prologue;
+        if (!p) return;
+        UI.mount(box, [
+          el('div.pk', p.title || '导语'),
+          el('div.pc', p.content || '')
+        ]);
+      })
+      .catch(function () { /* 拉不到就保持占位 */ });
+
+    return box;
+  }
+
   function render(root, ctx) {
     root.innerHTML = '';
     var wrap = el('div.page-inner');
@@ -110,6 +137,8 @@
         UI.mount(wrap, [
           el('div.page-title', '选择一条故事线'),
           el('div.page-sub', '同一个故事，从两个人的视角各走一遍 —— 你们的好感，会各自留下不同的痕迹。'),
+
+          prologueCard(),
 
           nameCard(),
 

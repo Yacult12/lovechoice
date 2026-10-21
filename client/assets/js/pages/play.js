@@ -739,10 +739,15 @@ var page = el('div.page.stage-host', stage);
       renderTop();
       updateBars(deltas);
 
-      // 章末 → 自动过场到下一章
+      // 章末 → 过场到下一章
+      //
+      // 顺序：章节过场卡（进入第 N 章）→ 本章启示（回顾第 N-1 章）→ 第 N 章正文。
+      // 启示对应的是「刚走完的那一章」，所以用 nextChapterNo - 1。
       if (data.chapterComplete && data.nextChapterNo && save.chapterNo === data.nextChapterNo) {
         showChapterCard(save.chapterTitle, data.nextChapterNo, function () {
-          drawNode();
+          showInsightCard(data.nextChapterNo - 1, function () {
+            drawNode();
+          });
         });
         return;
       }
@@ -801,6 +806,62 @@ var page = el('div.page.stage-host', stage);
       });
       stage.appendChild(card);
       Store.setTypingSpeed(Store.typingSpeed());
+    }
+
+    /**
+     * 本章启示卡片。
+     *
+     * 剧情走完一章后，把这一章真正想说的事交到玩家手里 ——
+     * 插图 + 文案 + 继续按钮。
+     *
+     * 顺序很关键：先「章节过场」（告诉你进入第 N 章），
+     * 再「本章启示」（回顾第 N-1 章学到的东西），然后才是第 N 章正文。
+     * 启示是回顾，所以它对应的是刚走完的那一章。
+     *
+     * 启示内容来自 /api/story/insights（纯静态文案），
+     * 拉不到时静默跳过 —— 不能因为一个装饰性卡片卡住主线。
+     */
+    function showInsightCard(chapterNo, done) {
+      var no = Number(chapterNo);
+      if (!no || no < 1) { done(); return; }
+
+      API.insights()
+        .then(function (data) {
+          var list = (data && data.list) || [];
+          var item = null;
+          for (var i = 0; i < list.length; i++) {
+            if (Number(list[i].chapterNo) === no) { item = list[i]; break; }
+          }
+          if (!item) { done(); return; }
+
+          var illo = item.illustration
+            ? './assets/img/illu/' + item.illustration + '.svg'
+            : null;
+
+          var inner = el('div.insight-inner', [
+            illo ? el('img.insight-illo', {
+              src: illo,
+              alt: item.title || '',
+              onerror: function () { this.style.display = 'none'; }
+            }) : null,
+            el('div.insight-kicker', 'IN S I G H T'),
+            el('div.insight-title', item.title || ''),
+            el('div.insight-rule'),
+            el('div.insight-body', '「' + (item.content || '') + '」'),
+            el('div.insight-hint', '点击继续')
+          ]);
+
+          var card = el('div.insight-card', inner);
+          card.addEventListener('click', function () {
+            card.style.transition = 'opacity .45s';
+            card.style.opacity = '0';
+            setTimeout(function () { card.remove(); done(); }, 420);
+          });
+          // 挂到 body 而不是 stage —— fixed 定位下两者等价，
+          // 但 body 能避免被 #stage 的 overflow:hidden 影响
+          document.body.appendChild(card);
+        })
+        .catch(function () { done(); });
     }
 
     function showEnding(data) {

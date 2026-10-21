@@ -50,8 +50,33 @@
             el('button', { type: 'button', onclick: function () { mode = mode === 'login' ? 'register' : 'login'; draw(); } },
               mode === 'login' ? '立即注册' : '去登录')
           ])
-        ])
+        ]),
+        // 底部小文案 —— 从 /api/story/insights 取，失败也不影响登录
+        el('div.auth-footer#auth-footer')
       ]);
+      loadFooter();
+    }
+
+    /**
+     * 加载登录页底部小文案。
+     * 用「同一个故事，两种视角」收尾，把整篇的主题一句话点出来。
+     */
+    function loadFooter() {
+      var box = UI.$('#auth-footer');
+      if (!box) return;
+      if (!API.insights) return;
+
+      API.insights()
+        .then(function (data) {
+          var f = data && data.loginFooter;
+          if (!f) return;
+          UI.mount(box, [
+            el('div.ft', f.title || ''),
+            el('div.fc', f.content || ''),
+            f.signature ? el('div.fs', f.signature) : null
+          ]);
+        })
+        .catch(function () { /* 装饰性内容，拉不到就算了 */ });
     }
 
     function setErr(msg) {

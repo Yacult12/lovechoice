@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="g104" x1="0" y1="0" x2="0.4" y2="1">
+  <stop offset="0%" stop-color="#402c34"/>
+  <stop offset="55%" stop-color="#503540"/>
+  <stop offset="100%" stop-color="#2c1e24"/>
+</linearGradient>
+<radialGradient id="g104glow" cx="0.5" cy="0.5" r="0.7">
+  <stop offset="0%" stop-color="#ff8f9a" stop-opacity="0.55"/>
+  <stop offset="100%" stop-color="#ff8f9a" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#0b0a10" stop-opacity="0.58"/>
+  <stop offset="34%" stop-color="#0b0a10" stop-opacity="0.10"/>
+  <stop offset="60%" stop-color="#0b0a10" stop-opacity="0.28"/>
+  <stop offset="100%" stop-color="#0b0a10" stop-opacity="0.92"/>
+</linearGradient></defs>
+<path d="M200 270 Q360 220 460 268" stroke="#ff9db0" stroke-width="4" fill="none" opacity="0.6"/>
+<path d="M500 272 Q600 320 760 270" stroke="#8fa8d8" stroke-width="4" fill="none" opacity="0.6"/>
+<!-- 断口 -->
+<path d="M478 250 l-18 34 M494 258 l14 30" stroke="#ffd89b" stroke-width="3" opacity="0.7"/>
+<circle cx="480" cy="268" r="9" fill="#ffd89b" opacity="0.5"/>
+<!-- 剪刀的抽象：两道交叉的线 -->
+<path d="M400 120 L560 250" stroke="#e8e2f0" stroke-width="3" opacity="0.35"/>
+<path d="M560 120 L400 250" stroke="#e8e2f0" stroke-width="3" opacity="0.35"/>
+<circle cx="480" cy="270" r="120" fill="none" stroke="#ff8f9a" stroke-width="2" stroke-dasharray="6 12" opacity="0.35"/>
+<rect x="0" y="0" width="960" height="540" fill="url(#vg)"/>
+</svg>

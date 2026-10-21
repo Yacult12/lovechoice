@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="g101" x1="0" y1="0" x2="0.4" y2="1">
+  <stop offset="0%" stop-color="#2f4560"/>
+  <stop offset="55%" stop-color="#3d5a7a"/>
+  <stop offset="100%" stop-color="#1f2d40"/>
+</linearGradient>
+<radialGradient id="g101glow" cx="0.5" cy="0.5" r="0.7">
+  <stop offset="0%" stop-color="#9fd8ff" stop-opacity="0.55"/>
+  <stop offset="100%" stop-color="#9fd8ff" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#0b0a10" stop-opacity="0.58"/>
+  <stop offset="34%" stop-color="#0b0a10" stop-opacity="0.10"/>
+  <stop offset="60%" stop-color="#0b0a10" stop-opacity="0.28"/>
+  <stop offset="100%" stop-color="#0b0a10" stop-opacity="0.92"/>
+</linearGradient></defs>
+<circle cx="480" cy="230" r="56" fill="#9fd8ff" opacity="0.24"/>
+<path d="M480 300 q-12 100 -56 140 h112 q-44 -40 -56 -140 z" fill="#9fd8ff" opacity="0.3"/>
+<!-- 脚下的地面线 -->
+<path d="M300 452 L660 452" stroke="#9fd8ff" stroke-width="3" opacity="0.5"/>
+<!-- 自己给自己撑起的伞 -->
+<path d="M330 220 a150 150 0 0 1 300 0 z" fill="none" stroke="#9fd8ff" stroke-width="3.5" opacity="0.7"/>
+<rect x="476" y="220" width="8" height="230" rx="4" fill="#9fd8ff" opacity="0.55"/>
+<circle cx="480" cy="200" r="8" fill="#9fd8ff" opacity="0.8"/>
+<rect x="0" y="0" width="960" height="540" fill="url(#vg)"/>
+</svg>

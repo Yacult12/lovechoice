@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" preserveAspectRatio="xMidYMid slice">
+<defs>
+<linearGradient id="g103" x1="0" y1="0" x2="0.4" y2="1">
+  <stop offset="0%" stop-color="#4a3a2c"/>
+  <stop offset="55%" stop-color="#5c4838"/>
+  <stop offset="100%" stop-color="#332820"/>
+</linearGradient>
+<radialGradient id="g103glow" cx="0.5" cy="0.4" r="0.7">
+  <stop offset="0%" stop-color="#ffcf8f" stop-opacity="0.55"/>
+  <stop offset="100%" stop-color="#ffcf8f" stop-opacity="0"/>
+</radialGradient>
+<linearGradient id="vg" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0%" stop-color="#0b0a10" stop-opacity="0.58"/>
+  <stop offset="34%" stop-color="#0b0a10" stop-opacity="0.10"/>
+  <stop offset="60%" stop-color="#0b0a10" stop-opacity="0.28"/>
+  <stop offset="100%" stop-color="#0b0a10" stop-opacity="0.92"/>
+</linearGradient></defs>
+<!-- 一双手捧着光 -->
+<path d="M300 400 q90 -70 180 -34 q90 -36 180 34 q-90 40 -180 26 q-90 14 -180 -26 z"
+      fill="#e8d9c8" opacity="0.24"/>
+<circle cx="480" cy="286" r="52" fill="#ffcf8f" opacity="0.42"/>
+<circle cx="480" cy="286" r="80" fill="#ffcf8f" opacity="0.14"/>
+<!-- 细小的碎片：曾经的好 -->
+<circle cx="404" cy="330" r="5" fill="#ffd89b" opacity="0.55"/>
+<circle cx="556" cy="330" r="5" fill="#ffd89b" opacity="0.55"/>
+<circle cx="440" cy="366" r="4" fill="#ffd89b" opacity="0.4"/>
+<circle cx="524" cy="368" r="4" fill="#ffd89b" opacity="0.4"/>
+<rect x="0" y="0" width="960" height="540" fill="url(#vg)"/>
+</svg>

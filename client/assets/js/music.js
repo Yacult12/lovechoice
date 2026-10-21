@@ -3,13 +3,26 @@
 
    曲目安排
    ----------
-     default 剧情之外（标题页/ 选线 / 图鉴 / 档案等非剧情界面）
+     default 剧情之外（标题页 / 选线 / 图鉴 / 档案等非剧情界面）
      act1~5  对应第 1~5 幕
 
+   实际用到的三首曲子
+   --------------------
+     《稳稳的幸福》(伴奏)  洋澜一
+     《我走以后》(降调氛围版)  水仙LONE
+     《La La Land》(钢琴版)  知名不具
+
+     default  稳稳的幸福 32s-62s   —— 界面/选线的安稳感
+     act1     La La Land  58s-88s   —— 初遇，钢琴轻快
+     act2     稳稳的幸福  95s-125s  —— 相处，日常的温度
+     act3     我走以后    72s-102s  —— 矛盾开始下沉
+     act4     我走以后   145s-175s  —— 别离，情绪最低处
+     act5     La La Land 150s-180s  —— 圆满，回到明亮
+
    设计要点
-   - 每首只循环播放开头 30 秒（切片时已加淡入淡出，接缝听不出来），
+   - 每首只循环播放 30 秒（切片时已加淡入淡出，接缝听不出来），
      完整曲目接近 4 分钟，全曲循环会腻，而且占带宽。
-   - 切幕时淡出旧曲 → 换src → 淡入新曲，避免硬切。
+   - 切幕时淡出旧曲 → 换 src → 淡入新曲，避免硬切。
    - 浏览器策略：首次交互前不允许自动播放。进入 auth 页时用户
      正在点「注册」按钮（算交互），此时 play() 能成功。
    - 用户可在顶栏手动开关，状态记在 localStorage。
@@ -29,6 +42,16 @@
     act3: './assets/audio/act3.mp3',
     act4: './assets/audio/act4.mp3',
     act5: './assets/audio/act5.mp3'
+  };
+
+  /* 曲目名（供 UI 显示 / 调试） */
+  var TRACK_NAMES = {
+    default: '稳稳的幸福',
+    act1: 'La La Land',
+    act2: '稳稳的幸福',
+    act3: '我走以后',
+    act4: '我走以后',
+    act5: 'La La Land'
   };
 
   var DEFAULT_TRACK = 'default';
@@ -213,6 +236,8 @@
     forChapter: forChapter,
     forScene: forScene,
     currentTrack: currentTrack,
-    TRACKS: TRACKS
+    TRACKS: TRACKS,
+    TRACK_NAMES: TRACK_NAMES,
+    currentTrackName: function () { return TRACK_NAMES[currentKey] || TRACK_NAMES[DEFAULT_TRACK]; }
   };
 })(window);

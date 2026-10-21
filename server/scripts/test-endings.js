@@ -157,9 +157,20 @@ async function main() {
     }
     const ms = allAff.map((a) => a[0]);
     const fs = allAff.map((a) => a[1]);
+    // ⚠️ 不要用 Math.min(...ms) —— 组合数到 20 万以上会爆栈
+    //   （Maximum call stack size exceeded），因为展开运算符要往栈上铺参数。
+    //   改用 reduce 循环求极值。
+    const range = (arr) => arr.reduce(
+      (acc, v) => ({
+        min: v < acc.min ? v : acc.min,
+        max: v > acc.max ? v : acc.max
+      }),
+      { min: Infinity, max: -Infinity }
+    );
+    const mr = range(ms);
+    const fr = range(fs);
     console.log(
-      `\n    好感区间 → 男 [${Math.min(...ms)}, ${Math.max(...ms)}]` +
-        ` · 女 [${Math.min(...fs)}, ${Math.max(...fs)}]`
+      `\n    好感区间 → 男 [${mr.min}, ${mr.max}] · 女 [${fr.min}, ${fr.max}]`
     );
     console.log(`    命中结局种类：${overlap}/${endings.length}`);
   }

@@ -1,706 +1,1152 @@
 -- ============================================================
---  《他们的故事》完整剧本重建
---  执行： npm run script
+--  《他们的故事》完整剧本
 --
---  结构：每条线 5 章，每章 2 个抉择点（第一章 1 个），共 8 个选项 / 8 个结局。
+--  ⚠️ 本文件由 scripts/build-story-sql.js 自动生成，请勿手改。
+--  要改剧情请改 scripts/story/*.js，然后跑：
+--      node scripts/build-story-sql.js
 --
 --  剧本约定（务必遵守）：
 --   1) node_key 只在「章内」唯一（uk_chapter_node），所以每章首节点都叫 n_start。
 --   2) 章末：dialogue 节点的 next_node_key 留 NULL —— 服务端会自动进入下一章首节点。
 --      ⚠️ 千万不要把章末的 next_node_key 写成 'n_start'，否则会跳回本章开头死循环。
 --   3) choice 节点自身不设 next_node_key，走向写在 choices.next_node_key。
---   4) 最后一章的选项指向 node_type='ending' 的节点，进入即触发结局匹配。
+--   4) 最后一章的末节点指向 node_type='ending' 的节点，进入即触发结局匹配。
 --
 --  结局判定顺序：非隐藏优先（按 id 升序）→ 隐藏结局。
---  因此每个路由的条件都设计成互斥且完备，隐藏结局在「其它都不匹配」时才可能触发。
+--  因此每个路由的条件都设计成互斥且完备。
 -- ============================================================
+
+SET NAMES utf8mb4;
 
 SET @r_male   := (SELECT id FROM routes WHERE route_code = 'male');
 SET @r_female := (SELECT id FROM routes WHERE route_code = 'female');
 
--- 清空旧剧本（保留 users / saves / choice_logs / user_endings）
-DELETE ch FROM choices ch
-  JOIN scene_nodes n ON n.id = ch.node_id
-  JOIN chapters c ON c.id = n.chapter_id
-  JOIN routes r ON r.id = c.route_id
- WHERE r.id IN (@r_male, @r_female);
-
-DELETE n FROM scene_nodes n
-  JOIN chapters c ON c.id = n.chapter_id
-  JOIN routes r ON r.id = c.route_id
- WHERE r.id IN (@r_male, @r_female);
-
-DELETE e FROM endings e WHERE e.route_id IN (@r_male, @r_female);
-DELETE ue FROM user_endings ue WHERE ue.route_id IN (@r_male, @r_female);
+-- ------------------------------------------------------------
+-- 清空旧剧本
+--
+-- ⚠️ 进度数据必须一起清，原因是外键指向：
+--   saves.chapter_id  →  chapters.id
+--   choice_logs.node_id → scene_nodes.id
+--
+-- 重建章节时 MySQL 会分配新的 chapter_id（旧的被删掉了），
+-- 而旧的存档行还指着那些已经不存在的 chapter_id / node_key，
+-- 于是玩家一进来就报：
+--   剧情节点不存在: n_final        （HTTP 404）
+--
+-- 剧本已经整体重写了，旧的 node_key 全部对不上，
+-- 保留这些存档没有意义 —— 直接清空最干净。
+-- ------------------------------------------------------------
+DELETE cl FROM choice_logs cl;
+DELETE s FROM saves s;
+DELETE ch FROM choices ch;
+DELETE n FROM scene_nodes n;
+DELETE e FROM endings e;
+DELETE ue FROM user_endings ue;
+DELETE FROM chapters;
 
 -- ------------------------------------------------------------
--- 立绘路径（相对 client/assets/js/pages/）
+-- 角色立绘路径
+--   前端 pickAvatar() 用 base.replace(/[^/]+$/, name) 替换末段文件名，
+--   所以这里的末段只是个占位名，写什么都不影响显示。
 -- ------------------------------------------------------------
-UPDATE characters SET avatar_url = '../../img/avatar/male-soft.svg'
+UPDATE characters SET avatar_url = 'assets/img/avatar/male-soft.svg'
  WHERE route_id = @r_male AND char_key = 'male';
-UPDATE characters SET avatar_url = '../../img/avatar/female-soft.svg'
+UPDATE characters SET avatar_url = 'assets/img/avatar/female-soft.svg'
  WHERE route_id = @r_male AND char_key = 'female';
-UPDATE characters SET avatar_url = '../../img/avatar/female-soft.svg'
+UPDATE characters SET avatar_url = 'assets/img/avatar/female-soft.svg'
  WHERE route_id = @r_female AND char_key = 'female';
-UPDATE characters SET avatar_url = '../../img/avatar/male-soft.svg'
+UPDATE characters SET avatar_url = 'assets/img/avatar/male-soft.svg'
  WHERE route_id = @r_female AND char_key = 'male';
 
 -- ------------------------------------------------------------
 -- 章节表：两条线各 5 章
 -- ------------------------------------------------------------
-DELETE FROM chapters WHERE route_id IN (@r_male, @r_female);
-
 INSERT INTO chapters (route_id, chapter_no, title, start_node, is_published) VALUES
-  (@r_male, 1, '第一章 · 初见',   'n_start', 1),
-  (@r_male, 2, '第二章 · 靠近',   'n_start', 1),
-  (@r_male, 3, '第三章 · 传闻',   'n_start', 1),
-  (@r_male, 4, '第四章 · 雨夜',   'n_start', 1),
-  (@r_male, 5, '第五章 · 走廊',   'n_start', 1),
-  (@r_female, 1, '第一章 · 借书', 'n_start', 1),
-  (@r_female, 2, '第二章 · 误解', 'n_start', 1),
-  (@r_female, 3, '第三章 · 传闻', 'n_start', 1),
-  (@r_female, 4, '第四章 · 一把伞','n_start', 1),
-  (@r_female, 5, '第五章 · 走廊', 'n_start', 1);
-
+  (@r_male, 1, '第一章 · 初遇', 'n_start', 1),
+  (@r_male, 2, '第二章 · 相处', 'n_start', 1),
+  (@r_male, 3, '第三章 · 矛盾', 'n_start', 1),
+  (@r_male, 4, '第四章 · 别离', 'n_start', 1),
+  (@r_male, 5, '第五章 · 圆满', 'n_start', 1),
+  (@r_female, 1, '第一章 · 初遇', 'n_start', 1),
+  (@r_female, 2, '第二章 · 相处', 'n_start', 1),
+  (@r_female, 3, '第三章 · 矛盾', 'n_start', 1),
+  (@r_female, 4, '第四章 · 别离', 'n_start', 1),
+  (@r_female, 5, '第五章 · 圆满', 'n_start', 1);
 
 -- ============================================================
---  男主线「他的视角」
---  情绪弧线：试探 → 靠近 → 得意 → 裂痕 → 和解
---  好感区间：最佳 m=75 / f=85，最差全负
+--  他主线
 -- ============================================================
 
--- ---------- 第一章 · 初见 ----------
+-- ---------- 第一章 · 初遇 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '九月，图书馆的空调开得太冷。她坐在你斜后方第三排，掉了三次书。',
-       'library', 'dialogue', 'n_m1_c'
+       '十月，朋友组的聚会。你在人群边缘看见一个女生，好像在等谁，又好像只是站着。',
+       'party', 'dialogue', 'n_m1_c1'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m1_c', '旁白',
-       '这一次，书直接滑到她脚边。她没捡，只是看着你，像在等什么。',
-       'library', 'choice', NULL
+SELECT c.id, 'n_m1_c1', '旁白',
+       '她朝你这边看了一眼。你有三秒钟决定要不要过去。',
+       'party', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m1_helped', '她',
-       '「谢谢。」她弯腰的时候刘海垂下来，「其实……我是故意的。」',
-       'library', 'dialogue', 'n_m1_end'
+SELECT c.id, 'n_m1_a1', '你',
+       '你走过去，把「你喜欢猫还是狗」「你怕不怕冷」这类问题提前排好顺序。她笑着听完，说你怎么跟背课文似的。你说没有啊，我只是记性好。',
+       'party', 'dialogue', 'n_m1_c2'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m1_ignored', '旁白',
-       '你把书推回去，说了句「下次小心」。她笑了一下，那个笑很难懂。',
-       'library', 'dialogue', 'n_m1_end'
+SELECT c.id, 'n_m1_b1', '你',
+       '你走过去，聊了几句，转头把刚才约的朋友也叫了过来。她愣了一下，说这样挺好的。',
+       'party', 'dialogue', 'n_m1_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m1_d1', '你',
+       '你没动。整晚你都在跟老同学聊从前的事，散场时回头，她已经不在了。',
+       'party', 'dialogue', 'n_m1_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m1_c2', '旁白',
+       '那天之后，你开始等她的消息。她的回复通常在两分钟以内，偶尔会晚一点。',
+       'party', 'choice', NULL
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m1_a2', '你',
+       '你算过，她的活跃时间在二十一点前后。你把晚上的事都推了，手机放在枕边，屏幕亮一次你看一次。',
+       'party', 'dialogue', 'n_m1_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m1_b2', '你',
+       '你第一次在十二点前睡着，醒来发现她发来三条消息。你回得比以前慢，但心情很好。',
+       'party', 'dialogue', 'n_m1_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m1_d2', '你',
+       '你把她设成了免打扰。头几天你总想去解除设置，后来就没再管过。',
+       'party', 'dialogue', 'n_m1_end'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_m1_end', '旁白',
-       '九月的最后一周，你开始记住她翻书的节奏。',
-       'library', 'dialogue', NULL
+       '你以为你在追一个人。后来才发现，你追的是她给你的那种被需要的感觉。',
+       'party', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 1;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_help', '弯腰帮她捡，顺势搭句话', 'n_m1_helped', 0, 6, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 1 AND n.node_key = 'n_m1_c';
+SELECT sn.id, 'c1_approach', '走过去，把她随口说过的喜好都记下来', 'n_m1_a1', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 1 AND sn.node_key = 'n_m1_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_ignore', '把书推回去，说「下次小心」', 'n_m1_ignored', -5, -4, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 1 AND n.node_key = 'n_m1_c';
+SELECT sn.id, 'c1_join', '走过去聊两句，也顺手约上了自己的朋友', 'n_m1_b1', 8, 6, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 1 AND sn.node_key = 'n_m1_c1';
 
--- ---------- 第二章 · 靠近 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c1_ignore', '继续跟朋友聊，她来不来都无所谓', 'n_m1_d1', 8, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 1 AND sn.node_key = 'n_m1_c1';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c2_wait', '每晚刷新，确认她最后一条动态的时间', 'n_m1_a2', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 1 AND sn.node_key = 'n_m1_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c2_sleep', '把手机扣在桌上，先睡够', 'n_m1_b2', 8, 6, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 1 AND sn.node_key = 'n_m1_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c2_mute', '把她的聊天设成免打扰，专心做自己的事', 'n_m1_d2', 7, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 1 AND sn.node_key = 'n_m1_c2';
+
+-- ---------- 第二章 · 相处 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十月，自习室。你们的位置隔了两排，正好能看见对方抬头。',
-       'classroom', 'dialogue', 'n_m2_c'
+       '在一起三个月。约会你提前做好攻略，礼物你提前一个月订，她的口味你记得比自己的还清楚。',
+       'street', 'dialogue', 'n_m2_c1'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m2_c', '她',
-       '「我最近有点累……」她声音很轻。你要——',
-       'classroom', 'choice', NULL
-FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
-
-INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m2_listen', '你',
-       '「那就都说给我听，今天什么都别扛着。」你把笔放下了。',
-       'classroom', 'dialogue', 'n_m2_c2'
-FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
-
-INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m2_argue', '你',
-       '「谁不累。」话一出口，你听见空气凉下来的声音。',
-       'classroom', 'dialogue', 'n_m2_c2'
-FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
-
-INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m2_c2', '旁白',
-       '晚上十点，回宿舍的路要绕一段才经过那家还亮着的店。',
+SELECT c.id, 'n_m2_c1', '旁白',
+       '她最近常在忙。你想知道她在忙什么。',
        'street', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m2_gift', '她',
-       '「……你怎么知道我今天想吃这个。」她笑的时候有点想哭。',
-       'dorm', 'dialogue', 'n_m2_end'
+SELECT c.id, 'n_m2_a1', '你',
+       '屏幕在你手里亮着。你看得很仔细，连她和谁用同一个表情包都记住了。你把手机还回去的时候，手心是汗。',
+       'street', 'dialogue', 'n_m2_c2'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m2_skip', '旁白',
-       '你什么都没买。手机屏幕亮了一整夜，两个人都在等对方先开口。',
-       'dorm', 'dialogue', 'n_m2_end'
+SELECT c.id, 'n_m2_b1', '你',
+       '你发完那句「玩得开心吗」，把手机扣下，去把拖了两周的球打了。她回了一个表情，你笑了一下。',
+       'street', 'dialogue', 'n_m2_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m2_c1x', '旁白',
+       '她愣了一下，说「好」。那之后她报备的次数反而变少了。',
+       'street', 'dialogue', 'n_m2_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m2_d1', '你',
+       '你把手机放回口袋。她后来发来的消息你隔了几个小时才回，回的时候已经不太记得她说了什么。',
+       'street', 'dialogue', 'n_m2_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m2_c2', '旁白',
+       '晚上她给你打电话，一开口就是「我好累」。你很想帮她。',
+       'street', 'choice', NULL
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m2_a2', '你',
+       '你说得很在理，还帮她把明天该怎么跟对方说都想好了。她「嗯」了一声，然后说「我知道了」。',
+       'street', 'dialogue', 'n_m2_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m2_b2', '你',
+       '你什么都没建议，只是一直「嗯嗯」。挂了电话她说「谢谢你听我说完」。这句话你记了很久。',
+       'street', 'dialogue', 'n_m2_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m2_c2x', '旁白',
+       '电话挂了。她没有再打过来，你也没有再问。',
+       'street', 'dialogue', 'n_m2_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m2_d2', '你',
+       '你挂了电话，翻身睡了。醒来的时候你想起她昨天好像找过你，但你想不起是什么事。',
+       'street', 'dialogue', 'n_m2_end'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_m2_end', '旁白',
-       '十月结束的时候，你发现沉默是会累积的。',
+       '你把在乎变成了管，把体贴变成了安排。她一开始觉得被珍惜，后来只觉得喘不过气。',
        'street', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 2;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_listen', '放下笔，认真听她说完', 'n_m2_listen', 5, 8, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 2 AND n.node_key = 'n_m2_c';
+SELECT sn.id, 'c3_check', '翻她手机，看她今天都和谁在一起', 'n_m2_a1', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_argue', '说自己也累，别矫情', 'n_m2_argue', -3, -10, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 2 AND n.node_key = 'n_m2_c';
+SELECT sn.id, 'c3_trust', '只发一句「玩得开心吗」，然后去做自己的事', 'n_m2_b1', 8, 7, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_gift', '绕远路给她带一份宵夜', 'n_m2_gift', 4, 6, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 2 AND n.node_key = 'n_m2_c2';
+SELECT sn.id, 'c3_cold', '直接说「你去吧，不用解释」', 'n_m2_c1x', -7, -6, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_skip', '算了，各自冷静一下', 'n_m2_skip', 0, -2, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 2 AND n.node_key = 'n_m2_c2';
+SELECT sn.id, 'c3_alone', '算了，她忙她的，我也忙我的', 'n_m2_d1', 8, -7, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c1';
 
--- ---------- 第三章 · 传闻 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_solve', '立刻讲道理，给她三套解决方案', 'n_m2_a2', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_listen', '先安静听完，再问一句「然后呢」', 'n_m2_b2', 8, 7, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_brief', '嗯两声，说「我有点累，先这样」', 'n_m2_c2x', -7, -6, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_alone', '「我也挺累的，改天再说」', 'n_m2_d2', 8, -7, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 2 AND sn.node_key = 'n_m2_c2';
+
+-- ---------- 第三章 · 矛盾 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十一月，隔壁班开始传你和她的事。传得比真的快。',
-       'cafe', 'dialogue', 'n_m3_c'
+       '同一件事，第三次出现了。你已经能预见她会怎么开头。',
+       'cafe', 'dialogue', 'n_m3_c1'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m3_c', '旁白',
-       '朋友在食堂起哄，问你俩是不是在一起了。你——',
+SELECT c.id, 'n_m3_c1', '旁白',
+       '你很累。',
        'cafe', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m3_admit', '你',
-       '「别瞎说。」你笑着把话挡回去，然后看向她坐的方向。',
+SELECT c.id, 'n_m3_a1', '你',
+       '你说「没事的，我不介意」。她松了口气。你也松了口气——虽然你知道自己很介意。',
        'cafe', 'dialogue', 'n_m3_c2'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m3_deny', '你',
-       '「没有的事。」你说得很快，快得像心虚。',
+SELECT c.id, 'n_m3_b1', '你',
+       '你说完就后悔了，怕她觉得你在推开她。她沉默了几秒，说「好，我给你空间」。这句话你听不出是松了口气还是失望。',
        'cafe', 'dialogue', 'n_m3_c2'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m3_c2', '她',
-       '「他们说的是真的吗。」她没有看你。你要——',
+SELECT c.id, 'n_m3_c1x', '旁白',
+       '你们各坐一边，咖啡凉透了。谁也没开口，因为开口就意味着先承认自己受不了。',
+       'cafe', 'dialogue', 'n_m3_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m3_d1', '旁白',
+       '你结了账，起身走了。她在后面叫了你一声，你没回头。',
+       'cafe', 'dialogue', 'n_m3_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m3_c2', '旁白',
+       '深夜你翻来覆去，脑子里只有一句：也许我们真的不合适。',
        'cafe', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m3_truth', '你',
-       '「是真的。」你说完，她才抬起头，「你怎么不早讲。」',
+SELECT c.id, 'n_m3_a2', '你',
+       '你把话说得很轻，说她最近工作太忙了。她信了，或者说，她选择信了。',
        'cafe', 'dialogue', 'n_m3_end'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m3_joke', '你',
-       '「你觉得呢。」你开了个玩笑。她笑了一下，然后站起来走了。',
+SELECT c.id, 'n_m3_b2', '你',
+       '「我好像在这段关系里，越活越不像我自己。」你说完，手在抖。但说出来的那一刻，你轻了一点。',
+       'cafe', 'dialogue', 'n_m3_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m3_d2', '你',
+       '你把要说的话删掉，把她的联系方式删掉，然后好好睡了一觉。醒来心里空空的，但也安静。',
        'cafe', 'dialogue', 'n_m3_end'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_m3_end', '旁白',
-       '那天之后，你们在食堂坐得比从前远了两个座位。',
+       '喜欢的时候要勇敢，被消耗的时候也要勇敢。拖着不放手，不叫坚持，叫舍不得自己。',
        'cafe', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 3;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_admit', '别承认，但挡一下话题', 'n_m3_admit', 6, 5, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 3 AND n.node_key = 'n_m3_c';
+SELECT sn.id, 'c5_endure', '再忍忍，也许以后她会变好', 'n_m3_a1', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 3 AND sn.node_key = 'n_m3_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_deny', '当众否认', 'n_m3_deny', 0, -8, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 3 AND n.node_key = 'n_m3_c';
+SELECT sn.id, 'c5_speak', '说出来：我最近需要一点自己的空间', 'n_m3_b1', 8, 6, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 3 AND sn.node_key = 'n_m3_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_honest', '说实话', 'n_m3_truth', 8, 8, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 3 AND n.node_key = 'n_m3_c2';
+SELECT sn.id, 'c5_quiet', '谁也不说话，看谁先低头', 'n_m3_c1x', -7, -6, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 3 AND sn.node_key = 'n_m3_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_joke', '用玩笑带过去', 'n_m3_joke', 0, -12, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 3 AND n.node_key = 'n_m3_c2';
+SELECT sn.id, 'c5_leave', '算了，我先去一个人待会儿', 'n_m3_d1', 8, -7, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 3 AND sn.node_key = 'n_m3_c1';
 
--- ---------- 第四章 · 雨夜 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c6_hold', '假装没事，把所有的念头都咽下去', 'n_m3_a2', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 3 AND sn.node_key = 'n_m3_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c6_admit', '承认这段关系在消耗我', 'n_m3_b2', 8, 5, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 3 AND sn.node_key = 'n_m3_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c6_leave', '想清楚了，我该走了', 'n_m3_d2', 8, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 3 AND sn.node_key = 'n_m3_c2';
+
+-- ---------- 第四章 · 别离 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十一月最后一场雨。她没带伞，站在教学楼门口很久。',
-       'rain', 'dialogue', 'n_m4_c'
+       '最后还是分开了。理由很杂，但你们都知道是什么。',
+       'rain', 'dialogue', 'n_m4_c1'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m4_c', '旁白',
-       '雨很大。你手里只有一把伞。你要——',
+SELECT c.id, 'n_m4_c1', '旁白',
+       '分开后的第一周，你把聊天记录翻到了最开始。',
        'rain', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m4_umbrella', '你',
-       '你把伞塞过去就跑。跑出十米她才喊住你，你没敢回头。',
+SELECT c.id, 'n_m4_a1', '你',
+       '你翻到很早以前的一条语音，那天她说「今天特别开心，因为下雨了」。你听着听着就哭了。',
        'rain', 'dialogue', 'n_m4_c2'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m4_c2', '她',
-       '「我们是不是……不合适。」她说这句话的时候在看雨。',
+SELECT c.id, 'n_m4_b1', '你',
+       '你把手机放进口袋，出了门。外面在下雨，你没带伞，走着走着反而舒服了一点。',
+       'rain', 'dialogue', 'n_m4_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m4_c1x', '你',
+       '删得很干净，干净到第二天你想发消息时，手指停在「发送」上面，不知道该发给谁。',
+       'rain', 'dialogue', 'n_m4_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m4_d1', '你',
+       '这一周你谁也没见。第八天你想起她，发现自己已经想不起她说话的样子了。',
+       'rain', 'dialogue', 'n_m4_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m4_c2', '旁白',
+       '你开始怀疑，是不是自己不够好。',
        'rain', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m4_stay', '你',
-       '「是我不好。」你在雨里站住了，「你要走我不拦，但你得让我陪。」',
+SELECT c.id, 'n_m4_a2', '你',
+       '你把所有错都揽到自己身上，像揽一件行李，仿佛只要你足够自责，结局就能重来一次。',
        'rain', 'dialogue', 'n_m4_end'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m4_left', '你',
-       '「可能是吧。」你说完就走了。雨很大，理由很充分。',
+SELECT c.id, 'n_m4_b2', '你',
+       '不是所有相爱都能走到最后。有些人不是不好，只是不适合并肩。放过她，也是放过那个困住的你。',
+       'rain', 'dialogue', 'n_m4_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m4_c2x', '旁白',
+       '你把门关上得很响，然后站在门后很久，一句话也说不出来。',
+       'rain', 'dialogue', 'n_m4_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m4_d2', '你',
+       '你把她的照片从手机里移走，也从心里移走。移走的时候你以为会疼，结果只是空。',
        'rain', 'dialogue', 'n_m4_end'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_m4_end', '旁白',
-       '那天夜里下了很久的雨。天亮的时候，你们都没有发消息。',
+       '放下不是遗忘。你把回忆收好，然后继续走。',
        'rain', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_share', '把伞给她，自己淋雨回去', 'n_m4_umbrella', 10, 12, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 4 AND n.node_key = 'n_m4_c';
-
--- 隐藏结局入口：把伞塞过去就跑，什么都不说。
--- 女方被这份笨拙的善意打动（f +5），而男方自己越想越退缩（m -25）。
--- 这是全局唯一能造出「f 高、但 m 明显掉队」的组合，作为隐藏结局的签名。
-INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_run', '把伞塞过去，然后跑掉', 'n_m4_run', -25, 5, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 4 AND n.node_key = 'n_m4_c';
-
-INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m4_run', '旁白',
-       '你把伞塞进她手里，转身走进了雨里。你没敢看她的表情。',
-       'rain', 'dialogue', 'n_m4_c2'
-FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 4;
+SELECT sn.id, 'c7_scroll', '翻遍记录，想找一句话把她劝回来', 'n_m4_a1', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_stay', '认错，说愿意陪她', 'n_m4_stay', 12, 10, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 4 AND n.node_key = 'n_m4_c2';
+SELECT sn.id, 'c7_stop', '关掉手机，去过自己的这一周', 'n_m4_b1', 8, 4, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_giveup', '承认可能不合适', 'n_m4_left', -5, -20, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 4 AND n.node_key = 'n_m4_c2';
+SELECT sn.id, 'c7_erase', '删掉所有联系方式，清得干干净净', 'n_m4_c1x', -7, -6, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c1';
 
--- ---------- 第五章 · 走廊 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c7_alone', '这周我想一个人过，谁也不见', 'n_m4_d1', 8, -7, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c1';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c8_blame', '认定是自己失败，自己不配被喜欢', 'n_m4_a2', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c8_fact', '承认只是不合适，不是谁的错', 'n_m4_b2', 8, 6, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c8_cut', '把她的号码也删掉，假装从没存在过', 'n_m4_c2x', -7, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c8_alone', '我一个人也挺好的，不用谁来证明', 'n_m4_d2', 8, -7, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 4 AND sn.node_key = 'n_m4_c2';
+
+-- ---------- 第五章 · 圆满 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十二月，毕业季。走廊里全是道别的声音，和行李箱轮子的响动。',
-       'corridor', 'dialogue', 'n_m5_c'
+       '一年后。你有固定的朋友，有雷打不动的球场，有几个睡不着的晚上，也有几个睡得很好的早上。',
+       'dailylife', 'dialogue', 'n_m5_c1'
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_m5_c', '旁白',
-       '她站在楼梯口，手里握着一封没有署名的信。你要——',
-       'corridor', 'choice', NULL
+SELECT c.id, 'n_m5_c1', '旁白',
+       '新认识的人问你在忙什么。你想了想。',
+       'dailylife', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_final', '旁白',
-       '后来的故事，取决于你们两个人在那之前，一次次把对方放在心上的重量。',
-       'corridor', 'ending', NULL
+SELECT c.id, 'n_m5_a1', '你',
+       '你说完自己就笑了。笑得很轻，像在承认一件有点丢人、但也不打算改的事。',
+       'dailylife', 'dialogue', 'n_m5_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m5_b1', '你',
+       '「球场、朋友、还有一个人。」你数着说，「都在。」她听完点点头，说「听起来不错」。',
+       'dailylife', 'dialogue', 'n_m5_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m5_d1', '你',
+       '「过得挺好的。」你说。这话是真的，只是你没提她。她也没问。',
+       'dailylife', 'dialogue', 'n_m5_c2'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m5_c2', '旁白',
+       '有些话到了嘴边，你还在想要不要讲。',
+       'dailylife', 'choice', NULL
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m5_a2', '你',
+       '你没讲。她问了一句「你最近怎么了」，你说「没什么」，话题就过去了。',
+       'dailylife', 'dialogue', 'n_m5_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m5_b2', '你',
+       '「我今天很想你。」你说得有点笨。她笑了一下，说「我也是」。就这么简单。',
+       'dailylife', 'dialogue', 'n_m5_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m5_d2', '你',
+       '你把想说的话咽了回去，继续过你的日子。日子过得挺好，就是偶尔会觉得少了点什么。',
+       'dailylife', 'dialogue', 'n_m5_end'
+FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_m5_end', '旁白',
+       '安全感不是把谁牢牢捆住，是你先站稳了，再伸出手。完整的你，才接得住另一个人。',
+       'dailylife', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_male AND c.chapter_no = 5;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_confess', '「信我收下了。这次换我先说。」', 'n_final', 25, 30, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 5 AND n.node_key = 'n_m5_c';
+SELECT sn.id, 'c9_depend', '「等一个人回消息」', 'n_m5_a1', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 5 AND sn.node_key = 'n_m5_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_hold', '把话咽回去，说一句「路上小心」', 'n_final', 0, -25, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_male AND c.chapter_no = 5 AND n.node_key = 'n_m5_c';
+SELECT sn.id, 'c9_balanced', '把自己的日子过好，也给她留了位置', 'n_m5_b1', 8, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 5 AND sn.node_key = 'n_m5_c1';
 
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c9_alone', '「没什么，我过得挺好的」', 'n_m5_d1', 8, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 5 AND sn.node_key = 'n_m5_c1';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c10_swallow', '什么都不说，等她发现', 'n_m5_a2', -9, 9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 5 AND sn.node_key = 'n_m5_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c10_tell', '说出来：我需要你，我想你了', 'n_m5_b2', 8, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 5 AND sn.node_key = 'n_m5_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c10_silent', '算了，不说也没关系', 'n_m5_d2', 8, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_male AND c.chapter_no = 5 AND sn.node_key = 'n_m5_c2';
 
 -- ============================================================
---  女主线「她的视角」
---  同一段日子，她记得的却是另一串细节。
---  情绪弧线：期待 → 疑惑 → 反复确认 → 悬着 → 开口
---  好感区间：最佳 m=80 / f=83
+--  她主线
 -- ============================================================
 
--- ---------- 第一章 · 借书 ----------
+-- ---------- 第一章 · 初遇 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '九月，图书馆的空调很足。你第三次把书碰掉，终于等到一只手伸过来。',
-       'library', 'dialogue', 'n_f1_c'
+       '十月，朋友组的聚会。他在人群边缘看见你，好像在等谁，又好像只是站着。',
+       'party', 'dialogue', 'n_f1_c1'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f1_c', '旁白',
-       '他蹲在你旁边，抬头看你。你要——',
-       'library', 'choice', NULL
+SELECT c.id, 'n_f1_c1', '旁白',
+       '他朝你走过来了。他有话想说，但没说出来。',
+       'party', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f1_thanks', '你',
-       '「谢谢。」你接过书，指尖碰到了他的手，你没有躲开。',
-       'library', 'dialogue', 'n_f1_end'
+SELECT c.id, 'n_f1_a1', '他',
+       '「你怕不怕冷？」他问得没头没尾。你说怕。他就笑，说那我们不合适。',
+       'party', 'dialogue', 'n_f1_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f1_cold', '你',
-       '你抽回书，说了句「不用」，转身就走。他在原地站了两秒。',
-       'library', 'dialogue', 'n_f1_end'
+SELECT c.id, 'n_f1_b1', '他',
+       '他举起杯子又放下，好像还想说什么。最后只说了句「那下次见」，转身走了。',
+       'party', 'dialogue', 'n_f1_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f1_d1', '旁白',
+       '他走过来的时候你正跟别人聊得开心。等你回过头，他已经跟别人聊上了。',
+       'party', 'dialogue', 'n_f1_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f1_c2', '旁白',
+       '你们在一起了。他回消息很快，几乎从不让你等。',
+       'party', 'choice', NULL
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f1_a2', '你',
+       '你把一天里所有的事都讲给他听。他说「傻瓜」，你听了整个晚上都高兴。你不知道的是，他开始觉得喘不过气。',
+       'party', 'dialogue', 'n_f1_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f1_b2', '你',
+       '你还是喜欢告诉他今天的事，只是也留了一点给自己。你发现，这样反而更想说话。',
+       'party', 'dialogue', 'n_f1_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f1_d2', '你',
+       '你把他设成了免打扰。头几天你总想去解除设置，后来就没再管过。',
+       'party', 'dialogue', 'n_f1_end'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_f1_end', '旁白',
-       '你后来才知道，那天他是特意换到你能看见的位置坐下的。',
-       'library', 'dialogue', NULL
+       '被人放在心上的感觉太好了，好到你开始把喜怒哀乐都系在他身上。',
+       'party', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 1;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_thanks', '认真道谢，并记住他的样子', 'n_f1_thanks', 6, 5, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 1 AND n.node_key = 'n_f1_c';
+SELECT sn.id, 'c1_approach', '接住他的紧张，替他把话头接过去', 'n_f1_a1', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 1 AND sn.node_key = 'n_f1_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_cold', '冷冷地说不用，然后走开', 'n_f1_cold', -12, -2, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 1 AND n.node_key = 'n_f1_c';
+SELECT sn.id, 'c1_join', '和他聊两句，也叫上自己的朋友一起', 'n_f1_b1', 6, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 1 AND sn.node_key = 'n_f1_c1';
 
--- ---------- 第二章 · 误解 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c1_ignore', '他走过来的时候，你在跟别人聊', 'n_f1_d1', -7, 8, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 1 AND sn.node_key = 'n_f1_c1';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c2_wait', '把一天里所有的事都讲给他听，连天气都想说', 'n_f1_a2', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 1 AND sn.node_key = 'n_f1_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c2_sleep', '留一点自己的时间给朋友和爱好', 'n_f1_b2', 6, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 1 AND sn.node_key = 'n_f1_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c2_mute', '把他的聊天设成免打扰，专注自己的事', 'n_f1_d2', -7, 7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 1 AND sn.node_key = 'n_f1_c2';
+
+-- ---------- 第二章 · 相处 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十月，你在自习室看见他。他总是坐在能看见你的位置，从来不坐更近。',
-       'classroom', 'dialogue', 'n_f2_c'
+       '在一起三个月。他记得你所有的喜好，也记得你所有的坏脾气。他对你好得没有一丝保留。',
+       'street', 'dialogue', 'n_f2_c1'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f2_c', '旁白',
-       '你发了条消息：「今天有点累。」他隔了四个小时才回。你要——',
-       'classroom', 'choice', NULL
+SELECT c.id, 'n_f2_c1', '旁白',
+       '他今晚要和朋友吃饭。你想问他在做什么。',
+       'street', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f2_trust', '你',
-       '「可能他在忙吧。」你替他找了个理由，然后继续写完了那道题。',
-       'classroom', 'dialogue', 'n_f2_c2'
+SELECT c.id, 'n_f2_a1', '你',
+       '他真的把整个晚上的行程发给了你。你盯着屏幕等他每一条回复，心里踏实了一点，也没踏实多少。',
+       'street', 'dialogue', 'n_f2_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f2_doubt', '你',
-       '「他是不是……其实没那么在意。」这句话你在心里转了一整晚。',
-       'dorm', 'dialogue', 'n_f2_c2'
+SELECT c.id, 'n_f2_b1', '你',
+       '他回了个「好」。你放下手机去见了老同学，笑了好几次。回家时他在门口等，手里拎着你爱吃的。',
+       'street', 'dialogue', 'n_f2_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f2_c2', '他',
-       '「昨天手机没电了。」他停了一下，「不是不想回你。」你——',
-       'classroom', 'choice', NULL
+SELECT c.id, 'n_f2_c1x', '旁白',
+       '他愣了一下，说「好」。那之后他报备的次数反而变少了。',
+       'street', 'dialogue', 'n_f2_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f2_talk', '你',
-       '「下次没电前先跟我说一声，我会乱想。」你说得很直白。',
-       'classroom', 'dialogue', 'n_f2_end'
+SELECT c.id, 'n_f2_d1', '你',
+       '你放下手机。他后来发来的消息你隔了几个小时才回，回的时候已经不太记得他说了什么。',
+       'street', 'dialogue', 'n_f2_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f2_avoid', '你',
-       '「嗯，没事。」你把话咽了回去，只回了一个笑脸。',
-       'classroom', 'dialogue', 'n_f2_end'
+SELECT c.id, 'n_f2_c2', '旁白',
+       '他抱怨工作。你想安慰他。',
+       'street', 'choice', NULL
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f2_a2', '你',
+       '你们一起骂到十二点，很解气。可第二天他还是很累，而且不太想跟你说话了。',
+       'street', 'dialogue', 'n_f2_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f2_b2', '你',
+       '「我在。」你说。他沉默了一会儿，说「嗯，我知道」。那晚他睡得比平时好。',
+       'street', 'dialogue', 'n_f2_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f2_c2x', '旁白',
+       '电话挂了。他没有再打过来，你也没有再问。',
+       'street', 'dialogue', 'n_f2_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f2_d2', '你',
+       '你挂了电话，翻身睡了。醒来的时候你想起他昨天好像找过你，但你想不起是什么事。',
+       'street', 'dialogue', 'n_f2_end'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_f2_end', '旁白',
-       '有些误会不是谁做错了，只是两个人都在等对方先解释。',
+       '你把亲密理解成了完全重合。而他的世界在悄悄变小。',
        'street', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 2;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_trust', '相信他，继续把心事讲给他听', 'n_f2_trust', 8, 6, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 2 AND n.node_key = 'n_f2_c';
+SELECT sn.id, 'c3_check', '要求他事事报备，空闲时间都留给我', 'n_f2_a1', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_doubt', '开始怀疑，把消息删掉不回', 'n_f2_doubt', -10, -8, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 2 AND n.node_key = 'n_f2_c';
+SELECT sn.id, 'c3_trust', '只说一句「玩得开心」，然后去陪自己的朋友', 'n_f2_b1', 7, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_talk', '把不安说出来，问清楚', 'n_f2_talk', 6, 10, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 2 AND n.node_key = 'n_f2_c2';
+SELECT sn.id, 'c3_cold', '直接说「你去吧，不用解释」', 'n_f2_c1x', -6, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_avoid', '假装什么都没发生', 'n_f2_avoid', -6, -12, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 2 AND n.node_key = 'n_f2_c2';
+SELECT sn.id, 'c3_alone', '算了，他忙他的，我也忙我的', 'n_f2_d1', -7, 8, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c1';
 
--- ---------- 第三章 · 传闻 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_solve', '急着替他分析，帮他骂那个不讲理的人', 'n_f2_a2', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_listen', '安静听完，只说「我在」', 'n_f2_b2', 7, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_brief', '嗯两声，说「我有点累，先这样」', 'n_f2_c2x', -6, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c4_alone', '「我也挺累的，改天再说」', 'n_f2_d2', -7, 8, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 2 AND sn.node_key = 'n_f2_c2';
+
+-- ---------- 第三章 · 矛盾 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十一月，隔壁班开始传你们的事。传的内容，比你们之间真实发生的多十倍。',
-       'cafe', 'dialogue', 'n_f3_c'
+       '同一件事，第三次出现了。你已经知道他会怎么解释，也知道你们会怎么吵。',
+       'cafe', 'dialogue', 'n_f3_c1'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f3_c', '旁白',
-       '朋友来问你：「你们是不是在一起了？」你要——',
+SELECT c.id, 'n_f3_c1', '旁白',
+       '这一次，你特别累。',
        'cafe', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f3_yes', '你',
-       '「大概……算是吧。」你说完，心跳得比实话还快。',
+SELECT c.id, 'n_f3_a1', '你',
+       '你又替他找了个理由：他工作压力大。你一次次降低底线，心里那笔账你不敢去算。',
        'cafe', 'dialogue', 'n_f3_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f3_no', '你',
-       '「没有，我们只是同学。」你说得很熟练，熟练得让自己难受。',
+SELECT c.id, 'n_f3_b1', '你',
+       '「我也会累的。」你说。他愣住了，说「我以为你不会累」。原来他也以为你不会。',
+       'cafe', 'dialogue', 'n_f3_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f3_c1x', '旁白',
+       '你们隔着一张小桌，谁都没动面前的咖啡。空气比上一次更冷。',
+       'cafe', 'dialogue', 'n_f3_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f3_d1', '旁白',
+       '你站起来走了。他在后面叫了你一声，你没回头。',
        'cafe', 'dialogue', 'n_f3_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_f3_c2', '旁白',
-       '第二天他在食堂坐得比平时远。你要——',
+       '你想起他说过「我可能给不了你想要的」。',
        'cafe', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f3_ask', '你',
-       '你端着汤走过去，在他对面坐下，「昨天的传闻，我想听你说。」',
+SELECT c.id, 'n_f3_a2', '你',
+       '你说了「我什么都不要」。他握住了你的手。你们都很久没这么近过——因为谁都不敢再往前一步。',
        'cafe', 'dialogue', 'n_f3_end'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f3_silent', '你',
-       '你没有过去。低头喝汤，汤很烫，足够你用一整个午休。',
+SELECT c.id, 'n_f3_b2', '你',
+       '「我爱过你，但我不能这样消耗自己。」你说完，第一次觉得心里是亮的，不是空的。',
+       'cafe', 'dialogue', 'n_f3_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f3_d2', '你',
+       '你把要说的话删掉，把他的联系方式删掉，然后好好睡了一觉。醒来心里空空的，但也安静。',
        'cafe', 'dialogue', 'n_f3_end'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_f3_end', '旁白',
-       '传闻从来没有停过。只有你们自己知道那天中午发生了什么。',
+       '害怕分开之后遇不到更好的，所以一直妥协。可真正的勇敢，是敢在痛的时候说不。',
        'cafe', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 3;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_confirm', '承认「好像是的」', 'n_f3_yes', 5, 8, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 3 AND n.node_key = 'n_f3_c';
+SELECT sn.id, 'c5_endure', '再等等吧，也许他以后会改', 'n_f3_a1', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 3 AND sn.node_key = 'n_f3_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_refuse', '否认，说只是同学', 'n_f3_no', 0, -10, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 3 AND n.node_key = 'n_f3_c';
+SELECT sn.id, 'c5_speak', '说出来：我也有需要被照顾的地方', 'n_f3_b1', 6, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 3 AND sn.node_key = 'n_f3_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_ask', '直接过去问清楚', 'n_f3_ask', 8, 6, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 3 AND n.node_key = 'n_f3_c2';
+SELECT sn.id, 'c5_quiet', '谁也不先开口，看谁先低头', 'n_f3_c1x', -6, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 3 AND sn.node_key = 'n_f3_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_notask', '算了，低下头', 'n_f3_silent', -4, -8, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 3 AND n.node_key = 'n_f3_c2';
+SELECT sn.id, 'c5_leave', '算了，我先一个人待一会儿', 'n_f3_d1', -7, 8, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 3 AND sn.node_key = 'n_f3_c1';
 
--- ---------- 第四章 · 一把伞 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c6_hold', '假装没事，说「我什么都不要」', 'n_f3_a2', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 3 AND sn.node_key = 'n_f3_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c6_admit', '承认这段关系在消耗我', 'n_f3_b2', 5, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 3 AND sn.node_key = 'n_f3_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c6_leave', '想清楚了，我该走了', 'n_f3_d2', -7, 8, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 3 AND sn.node_key = 'n_f3_c2';
+
+-- ---------- 第四章 · 别离 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十一月最后一场雨。他站在便利店门口，看着雨，没有要走的意思。',
-       'rain', 'dialogue', 'n_f4_c'
+       '最后还是分开了。理由很杂，但你们都知道是什么。',
+       'rain', 'dialogue', 'n_f4_c1'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f4_c', '旁白',
-       '你有一把伞，伞只够一个人。你要——',
+SELECT c.id, 'n_f4_c1', '旁白',
+       '分开后的第一周，你把他所有的聊天记录翻到了最开始。',
        'rain', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f4_wait', '你',
-       '你收了伞，站到他旁边。两个人一起看了二十分钟的雨。',
+SELECT c.id, 'n_f4_a1', '你',
+       '你翻到很早以前的一条语音，那天他说「今天特别开心，因为下雨了」。你听着听着就哭了。',
        'rain', 'dialogue', 'n_f4_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f4_left', '你',
-       '你从另一边走了。走的时候，你听见自己松了一口气。',
+SELECT c.id, 'n_f4_b1', '你',
+       '你把手机放进口袋，出了门。外面在下雨，你没带伞，走着走着反而舒服了一点。',
        'rain', 'dialogue', 'n_f4_c2'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f4_c2', '他',
-       '「伞给你。」他把伞递过来，手一直在抖。你要——',
+SELECT c.id, 'n_f4_c1x', '你',
+       '删得很干净，干净到第二天你想发消息时，手指停在「发送」上面，不知道该发给谁。',
+       'rain', 'dialogue', 'n_f4_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f4_d1', '你',
+       '这一周你谁也没见。第八天你想起他，发现自己已经想不起他说话的样子了。',
+       'rain', 'dialogue', 'n_f4_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f4_c2', '旁白',
+       '你开始怀疑，是不是自己不够好。',
        'rain', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f4_share', '你',
-       '你接过来，又把伞塞回他手里，「一起走。」',
+SELECT c.id, 'n_f4_a2', '你',
+       '你把所有的错都揽到自己身上。你想，如果当时再好一点，是不是就不用走到这里。',
        'rain', 'dialogue', 'n_f4_end'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f4_refuse', '你',
-       '「你留着吧。」你接过伞，走了。伞很重，你一路都没打开。',
+SELECT c.id, 'n_f4_b2', '你',
+       '一段感情落幕，不等于你不值得被爱。允许自己难过，但别把一次失败当成整个人生的定论。',
+       'rain', 'dialogue', 'n_f4_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f4_c2x', '旁白',
+       '你把他从所有列表里删掉，最后一个长按确认的时候，你的手指停了很久。',
+       'rain', 'dialogue', 'n_f4_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f4_d2', '你',
+       '你把他的照片从手机里移走，也从心里移走。移走的时候你以为会疼，结果只是空。',
        'rain', 'dialogue', 'n_f4_end'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_f4_end', '旁白',
-       '那天夜里下了很久的雨。天亮的时候，伞在你书包里，已经干了。',
+       '放下不是遗忘，是不再被过去困住。',
        'rain', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_wait', '收伞，站到他旁边', 'n_f4_wait', 10, 8, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 4 AND n.node_key = 'n_f4_c';
+SELECT sn.id, 'c7_scroll', '翻遍记录，想找一句话把他叫回来', 'n_f4_a1', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_pass', '从另一边走掉', 'n_f4_left', -12, -15, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 4 AND n.node_key = 'n_f4_c';
+SELECT sn.id, 'c7_stop', '关掉手机，把这一周留给自己', 'n_f4_b1', 4, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_together', '把伞塞回去：一起走', 'n_f4_share', 12, 10, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 4 AND n.node_key = 'n_f4_c2';
+SELECT sn.id, 'c7_erase', '删掉所有联系方式，清得干干净净', 'n_f4_c1x', -6, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_take', '接过伞自己走', 'n_f4_refuse', -8, -14, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 4 AND n.node_key = 'n_f4_c2';
+SELECT sn.id, 'c7_alone', '这周我想一个人过，谁也不见', 'n_f4_d1', -7, 8, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c1';
 
--- 隐藏结局的唯一入口：把伞还回去却什么都不说。
--- 「他想要的不是伞，是一句回应」→ 女方好感微涨（f +6），男方好感重挫（m -25），
--- 造出「f 高、但 m 明显掉队」这一在其它任何组合里都不存在的签名。
--- 数值标定：最优路线 m=80/f=83，本选项替换掉 f 最高的 o_together(+10)
--- 后为 m=43 / f=79 —— 刚好越过 f≥78 阈值、且远低于 m≥58。
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_silent', '把伞还给他，什么也不说', 'n_f4_hold', -25, 6, 3
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 4 AND n.node_key = 'n_f4_c2';
+SELECT sn.id, 'c8_blame', '否定自己，觉得是自己不够好才走到这步', 'n_f4_a2', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c2';
 
-INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f4_hold', '他',
-       '他接过伞，看了你两秒，「……那算了。」他转身走进了雨里。',
-       'rain', 'dialogue', 'n_f4_end'
-FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 4;
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c8_fact', '承认只是不合适，不是我不值得被爱', 'n_f4_b2', 6, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c2';
 
--- ---------- 第五章 · 走廊 ----------
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c8_cut', '把他也拉黑，假装从没存在过', 'n_f4_c2x', -7, -7, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c8_alone', '我一个人也挺好的，不用谁来证明', 'n_f4_d2', -7, 8, 4
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 4 AND sn.node_key = 'n_f4_c2';
+
+-- ---------- 第五章 · 圆满 ----------
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
 SELECT c.id, 'n_start', '旁白',
-       '十二月，毕业季。同一条走廊，你已经走了四年，他只走了一年。',
-       'corridor', 'dialogue', 'n_f5_c'
+       '一年后。你有常约的饭局，有重拾起来的爱好，有几个睡不着的晚上，也有几个睡得很好的早上。',
+       'dailylife', 'dialogue', 'n_f5_c1'
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f5_c', '旁白',
-       '他在楼梯口站了很久，像是在等谁先开口。你要——',
-       'corridor', 'choice', NULL
+SELECT c.id, 'n_f5_c1', '旁白',
+       '新认识的人问你在忙什么。你想了想。',
+       'dailylife', 'choice', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
 
 INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
-SELECT c.id, 'n_f_final', '旁白',
-       '原来同一条走廊，从两个人的视角看，是两段完全不同的回忆。',
-       'corridor', 'ending', NULL
+SELECT c.id, 'n_f5_a1', '你',
+       '你说完自己就笑了。笑得很轻，像在承认一件有点丢人、但也不打算改的事。',
+       'dailylife', 'dialogue', 'n_f5_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f5_b1', '你',
+       '「朋友、爱好、还有一个人。」你数着说，「都在。」他听完点点头，说「听起来不错」。',
+       'dailylife', 'dialogue', 'n_f5_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f5_d1', '你',
+       '「过得挺好的。」你说。这话是真的，只是你没提他。他也没问。',
+       'dailylife', 'dialogue', 'n_f5_c2'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f5_c2', '旁白',
+       '有些不安已经到了嘴边。',
+       'dailylife', 'choice', NULL
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f5_a2', '你',
+       '你用一句「你今天怎么没找我」代替了真正想问的那句。他困惑地看着你，你把话咽了回去。',
+       'dailylife', 'dialogue', 'n_f5_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f5_b2', '你',
+       '「我有点不安。」你说得有点笨。他放下手机，认真听完了。两个人都是完整的，也都愿意为对方挪一点位置。',
+       'dailylife', 'dialogue', 'n_f5_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f5_d2', '你',
+       '你把想说的话咽了回去，继续过你的日子。日子过得挺好，就是偶尔会觉得少了点什么。',
+       'dailylife', 'dialogue', 'n_f5_end'
+FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
+
+INSERT INTO scene_nodes (chapter_id, node_key, speaker, content, bg_key, node_type, next_node_key)
+SELECT c.id, 'n_f5_end', '旁白',
+       '好的安全感，一半来自伴侣的真诚坚定，一半源于内心的自足。相爱是两个完整独立的人，互相靠近。',
+       'dailylife', 'dialogue', NULL
 FROM chapters c WHERE c.route_id = @r_female AND c.chapter_no = 5;
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_first', '「这次我先说 —— 我一直在等你开口。」', 'n_f_final', 25, 30, 1
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 5 AND n.node_key = 'n_f5_c';
+SELECT sn.id, 'c9_depend', '「等一个人回消息」', 'n_f5_a1', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 5 AND sn.node_key = 'n_f5_c1';
 
 INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
-SELECT n.id, 'o_goodbye', '「祝你以后一切都好。」然后转身', 'n_f_final', 0, -25, 2
-FROM scene_nodes n JOIN chapters c ON c.id = n.chapter_id
-WHERE c.route_id = @r_female AND c.chapter_no = 5 AND n.node_key = 'n_f5_c';
+SELECT sn.id, 'c9_balanced', '把自己的日子过好，也给他留了位置', 'n_f5_b1', 8, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 5 AND sn.node_key = 'n_f5_c1';
 
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c9_alone', '「没什么，我过得挺好的」', 'n_f5_d1', -7, 8, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 5 AND sn.node_key = 'n_f5_c1';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c10_swallow', '什么都不说，猜忌试探，看他什么反应', 'n_f5_a2', 9, -9, 1
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 5 AND sn.node_key = 'n_f5_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c10_tell', '坦诚说出来：我有点不安，讲给你听', 'n_f5_b2', 8, 8, 2
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 5 AND sn.node_key = 'n_f5_c2';
+
+INSERT INTO choices (node_id, option_key, option_text, next_node_key, effect_male, effect_female, sort_no)
+SELECT sn.id, 'c10_silent', '算了，不说也没关系', 'n_f5_d2', -7, 8, 3
+FROM scene_nodes sn JOIN chapters c ON c.id = sn.chapter_id
+WHERE c.route_id = @r_female AND c.chapter_no = 5 AND sn.node_key = 'n_f5_c2';
 
 -- ============================================================
---  结局（每条线 4 个，含 1 个隐藏结局）
---
---  阈值依据（由 scripts/calibrate.js 实测得出，勿随意改数值）：
---    男线全最优路线 = 男 70 / 女 85
---    女线全最优路线 = 男 80 / 女 83
---  所以「满好感线」阈值取 m ≥ 55 / f ≥ 78：需要全程基本选对，
---  但不至于只有唯一一条完美路线能达成。
---
---  判定顺序：非隐藏优先（id 升序）→ 隐藏结局。
---  四组条件互斥且完备，覆盖所有可能的 (m, f) 组合。
+-- 结局定义
+--   判定顺序：非隐藏优先 → 隐藏。条件互斥且完备。
 -- ============================================================
 
--- 男主线：
---   f < 30              → 一个人的体面（她走了）
---   30 ≤ f < 78         → 各自安好
---   f ≥ 78 且 m ≥ 55    → 双向奔赴
---   f ≥ 78 且 m < 55    → 原来那天你也在【隐藏】
---   第四条的入口是第四章 o_run（m -25 / f +5）——
---   那条「把伞塞过去就跑」的沉默路线会让 m 掉队而 f 依然很高。
+-- 他线
 INSERT INTO endings (route_id, ending_key, title, description, condition_json, is_hidden) VALUES
-  (@r_male, 'e_true', '双向奔赴',
-   '你们都在该开口的时候开了口。这件事比什么都难，所以格外珍贵。',
-   '{"all":[{"affection_female":{">=":78}},{"affection_male":{">=":55}}]}', 0),
+  (@r_male, 'e_bond', '圆满',
+   '你们都成了更好的自己，也还在一起。这一次，不是因为抓得紧，是因为都站稳了。',
+   '{"all":[{"affection_male":{">=":15}},{"affection_female":{">=":25}},{"not":{"all":[{"affection_male":{">=":40}},{"affection_female":{">=":30}}]}}]}', 0),
   (@r_male, 'e_apart', '各自安好',
-   '没有对错，只是没能走到同一个方向。你们都好好的，这就够了。',
-   '{"all":[{"affection_female":{">=":30}},{"affection_female":{"<":78}}]}', 0),
-  (@r_male, 'e_lonely', '一个人的体面',
-   '她走了，你留在原地。你把体面守得很好，好到只剩下体面。',
-   '{"affection_female":{"<":30}}', 0),
+   '最后没走到一起。但你没有把自己弄丢，她也没有。分开不是谁的错，只是两条路岔开了。',
+   '{"all":[{"affection_male":{">=":15}},{"affection_female":{"<":25}}]}', 0),
+  (@r_male, 'e_miss', '错过',
+   '她一直都在。只是那时候的你，太用力了，忙着围着她转，反而看不见站在旁边的人。',
+   '{"all":[{"affection_male":{"<":15}},{"affection_female":{">=":25}}]}', 0),
+  (@r_male, 'e_alone', '一个人的体面',
+   '你把体面守得很好，好到只剩下体面。两个人都没做错什么，也都没得到什么。',
+   '{"all":[{"affection_male":{"<":15}},{"affection_female":{"<":25}}]}', 0),
   (@r_male, 'e_quiet', '原来那天你也在',
-   '你把伞塞给她就跑了，什么也没说。她在原地站了很久 —— 久到多年以后，她还记得那天。',
-   '{"all":[{"affection_female":{">=":78}},{"affection_male":{"<":55}}]}', 1);
+   '很多年后你才明白：那些你以为错过的时刻，她其实一直都在。你终于学会爱自己，却再也找不到那个愿意等你的人。',
+   '{"all":[{"affection_male":{">=":40}},{"affection_female":{">=":30}}]}', 1);
 
--- 女主线：
---   f < 30              → 错过
---   30 ≤ f < 78         → 各自努力
---   f ≥ 78 且 m ≥ 58    → 原来你也在这里
---   f ≥ 78 且 m < 58    → 伞一直在他那里【隐藏】
---   第四条的入口是第四章 o_silent（m -25 / f +4）。
+-- 她线
 INSERT INTO endings (route_id, ending_key, title, description, condition_json, is_hidden) VALUES
-  (@r_female, 'e_true', '原来你也在这里',
-   '你终于明白他当时为什么沉默 —— 他只是在等你先开口。',
-   '{"all":[{"affection_female":{">=":78}},{"affection_male":{">=":58}}]}', 0),
-  (@r_female, 'e_apart', '各自努力',
-   '你们在同一个屋檐下错开了很多年。偶尔想起来，还是会笑一下。',
-   '{"all":[{"affection_female":{">=":30}},{"affection_female":{"<":78}}]}', 0),
+  (@r_female, 'e_bond', '圆满',
+   '你们都成了更好的自己，也还在一起。这一次，不是因为抓得紧，是因为都站稳了。',
+   '{"all":[{"affection_female":{">=":15}},{"affection_male":{">=":25}},{"not":{"all":[{"affection_female":{">=":40}},{"affection_male":{">=":30}}]}}]}', 0),
+  (@r_female, 'e_apart', '各自安好',
+   '最后没走到一起。但你没有把自己弄丢，他也没有。分开不是谁的错，只是两条路岔开了。',
+   '{"all":[{"affection_female":{">=":15}},{"affection_male":{"<":25}}]}', 0),
   (@r_female, 'e_miss', '错过',
-   '你以为他不爱。其实他只是没说出口，而你也没有再问一次。',
-   '{"affection_female":{"<":30}}', 0),
+   '他一直都在。只是那时候的你，太习惯被爱了，反而忘了看看自己还想要什么。',
+   '{"all":[{"affection_female":{"<":15}},{"affection_male":{">=":25}}]}', 0),
+  (@r_female, 'e_alone', '一个人的体面',
+   '你把体面守得很好，好到只剩下体面。两个人都没做错什么，也都没得到什么。',
+   '{"all":[{"affection_female":{"<":15}},{"affection_male":{"<":25}}]}', 0),
   (@r_female, 'e_umbrella', '伞一直在他那里',
-   '那天他说「伞给你」，你把它塞了回去，什么也没说。他把伞带回了家，一直没再用过。',
-   '{"all":[{"affection_female":{">=":78}},{"affection_male":{"<":58}}]}', 1);
+   '很多年后你才明白：那些你以为错过的时刻，他其实一直都在。你终于学会爱自己，却再也找不到那个愿意等你的人。',
+   '{"all":[{"affection_female":{">=":40}},{"affection_male":{">=":30}}]}', 1);
+
+-- ------------------------------------------------------------
+-- 自检：
+--   SELECT COUNT(*) FROM routes;      -- 应为 2
+--   SELECT COUNT(*) FROM chapters;    -- 应为 10
+--   SELECT COUNT(*) FROM scene_nodes; -- 应为 110
+--   SELECT COUNT(*) FROM choices;     -- 应为 70
+--   SELECT COUNT(*) FROM endings;     -- 应为 10
+-- ------------------------------------------------------------

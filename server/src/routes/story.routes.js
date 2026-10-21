@@ -8,8 +8,21 @@ const { validateParams, validateQuery } = require('../middleware/validate');
 const { ok, asyncHandler } = require('../utils/response');
 const { z } = require('zod');
 const { routeCodeParams, chapterParams } = require('../schemas');
+const { INSIGHTS, PROLOGUE, LOGIN_FOOTER } = require('../data/insights');
 
 const router = express.Router();
+
+/** GET /api/story/insights 章节启示 + 导语 + 登录页文案 */
+router.get(
+  '/insights',
+  asyncHandler(async (req, res) =>
+    ok(res, {
+      list: INSIGHTS,
+      prologue: PROLOGUE,
+      loginFooter: LOGIN_FOOTER
+    })
+  )
+);
 
 /** GET /api/story/routes 故事线列表（他 / 她） */
 router.get(
