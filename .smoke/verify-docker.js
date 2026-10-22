@@ -163,6 +163,39 @@ check('开启 gzip', /gzip\s+on/.test(nginx));
 soft('SVG 开启 gzip（31 张美术）', /image\/svg\+xml/.test(nginx));
 check('未硬编码 HTTPS 跳转', !/return\s+301\s+https/.test(nginx));
 
+/*
+ * 缓存策略必须钉死。
+ *
+ * 踩过的坑：nginx 曾给 /assets/ 设了 30 天强缓存
+ * （expires 30d + max-age=2592000），改完前端部署上去，
+ * 老浏览器打开还是旧版，换台没登录过的浏览器才是新版。
+ *
+ * 强缓存让老浏览器 30 天内压根不回服务器问一次，
+ * index.html 重新拉了也没用 —— 它引用的 JS 文件名没变，
+ * 浏览器直接拿本地旧副本。
+ */
+console.log('\n[6b] 缓存策略');
+const assetsLoc = nginxNoComment.slice(
+  nginxNoComment.indexOf('location /assets/'),
+  nginxNoComment.indexOf('location ^~ /assets/audio/')
+);
+check('/assets/ 不再设 30 天强缓存',
+  !/expires\s+30d/.test(assetsLoc) && !/max-age=2592000/.test(assetsLoc),
+  '强缓存会导致老浏览器永远拿不到新版');
+check('/assets/ 声明 no-store',
+  /location \/assets\/[\s\S]*?Cache-Control\s+"no-store/.test(nginxNoComment));
+check('/assets/ 里重写了安全头',
+  /location \/assets\/[\s\S]*?X-Content-Type-Options/.test(nginxNoComment),
+  'location 内有 add_header 时 nginx 不再继承 server 级的，安全头会丢');
+check('音频走协商缓存（no-cache）',
+  /location \^~ \/assets\/audio\/[\s\S]*?no-cache/.test(nginxNoComment),
+  '音频大，不能每次重下；但换曲后老浏览器必须能拿到新版');
+check('音频仍开启 Accept-Ranges',
+  /location \^~ \/assets\/audio\/[\s\S]*?Accept-Ranges bytes/.test(nginxNoComment));
+check('入口 index.html 走 no-store',
+  /location \/[\s\S]*?Cache-Control\s+"no-store/.test(nginxNoComment),
+  '入口页必须每次重拉 —— 它带着资源版本戳，是全站换新的总开关');
+
 console.log('\n[7] 运行时配置注入');
 const cfg = read('client/docker/config.js');
 check('config.js 设置 window.LOVE_API_BASE', /window\.LOVE_API_BASE/.test(cfg));
@@ -172,11 +205,28 @@ check('index.html 在 api.js 之前加载 config.js',
   idxHtml.indexOf('config.js') < idxHtml.indexOf('assets/js/api.js'));
 soft('config.js 加载失败有兜底', /onerror/.test(idxHtml));
 
+// ---------- 7b. 版本戳（缓存炸弹的第二道保险） ----------
+console.log('\n[7b] 资源版本戳');
+check('index.html 的 CSS 引用带版本戳',
+  /main\.css\?v=__LOVE_BUILD__/.test(idxHtml));
+const scriptTags = [...idxHtml.matchAll(/src="\.\/assets\/js\/[^"]+\.js\?v=__LOVE_BUILD__"/g)];
+check('所有 JS 引用都带版本戳',
+  scriptTags.length >= 12,
+  '实际 ' + scriptTags.length + ' 个 —— 漏一个就有一个文件会被旧缓存卡住');
+check('Dockerfile 会替换版本占位符',
+  /__LOVE_BUILD__/.test(frontDf) && /sed -i/.test(frontDf),
+  '占位符没被替换，版本戳就永远是同一个字符串，等于没生效');
+check('Dockerfile 替换失败会中断构建',
+  /grep -q '__LOVE_BUILD__'[\s\S]{0,200}?exit 1/.test(frontDf));
+
 const apiJs = read('client/assets/js/api.js');
 check('api.js 读 window.LOVE_API_BASE', /LOVE_API_BASE/.test(apiJs));
 check('api.js 对本地开发端口做例外',
   /5500/.test(apiJs) && /5600/.test(apiJs),
   '本地开发端口若不回退直连 3000，本地就跑不通');
+check('api.js 请求禁用缓存',
+  /cache:\s*'no-store'/.test(apiJs),
+  'GET /api/play/state 被浏览器缓存住，老用户就会一直看旧进度');
 
 console.log('\n' + '='.repeat(52));
 console.log(`  通过 ${pass} · 警告 ${warn} · 失败 ${fail}`);

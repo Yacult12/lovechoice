@@ -49,6 +49,27 @@ function createApp() {
     app.use(morgan('combined'));
   }
 
+  /*
+   * API 响应一律不许缓存。
+   *
+   * 踩过的坑：改了剧本/数值后，老浏览器登录进去看到的还是旧内容，
+   * 换一台没登录过的浏览器却是新版 —— 因为 /api/play/state 这类
+   * GET 被浏览器缓存了，登录后直接拿本地副本渲染。
+   *
+   * no-store 是最强的一档：不存、不读、不问。
+   * 游戏的数据本来就要求实时，任何缓存都是错的。
+   *
+   * ⚠️ 必须挂在 healthRoutes 之前 ——
+   * 否则 /api/health 会绕过这个中间件，头上没有缓存控制字段，
+   * 云监控那边看到的响应头是空的，排查问题时容易误判。
+   */
+  app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    next();
+  });
+
   // 健康检查不带 /api 前缀，方便云监控直接探活
   // 刻意放在限流之前 —— 否则云监控高频探活会把自己限掉
   app.use('/api', routes.healthRoutes);

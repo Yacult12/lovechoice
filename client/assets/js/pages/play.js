@@ -630,20 +630,21 @@ var page = el('div.page.stage-host', stage);
           UI.renderText(node.content || '你要怎么做？'))
       ]);
 
+      /*
+       * 选项不显示好感加减。
+       *
+       * 数值摆出来等于把「做选择」变成「算最优解」，
+       * 玩家会盯着 +9 / -9 挑，而不是顺着剧情走。
+       * 结算后的好感变化由顶栏飘字反馈，足够了。
+       */
       var list = el('div.choice-box', (node.options || []).map(function (opt, idx) {
-        var m = Number(opt.effectMale) || 0;
-        var f = Number(opt.effectFemale) || 0;
         return el('button.choice-btn', {
           type: 'button',
           dataset: { optionKey: opt.optionKey },
           onclick: function () { doChoice(opt.optionKey); }
         }, [
           el('span.idx', String(idx + 1)),
-          el('span', opt.optionText),
-          (m || f) ? el('span.eff', [
-            m ? el('span.m', '男 ' + UI.deltaText(m)) : null,
-            f ? el('span.f', '女 ' + UI.deltaText(f)) : null
-          ]) : null
+          el('span', opt.optionText)
         ]);
       }));
 

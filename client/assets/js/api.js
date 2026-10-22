@@ -89,7 +89,17 @@
       method: method,
       headers: headers,
       body: body === undefined || body === null ? undefined : JSON.stringify(body),
-      signal: options.signal
+      signal: options.signal,
+      /*
+       * 一律不走浏览器缓存。
+       *
+       * 踩过的坑：改了剧本/数值，老浏览器登录后看到的还是旧内容，
+       * 换台没登录过的浏览器却是新版 —— /api/play/state 这类 GET
+       * 被浏览器缓存住了，登录后直接拿本地副本渲染。
+       *
+       * 游戏数据本来就要求实时，缓存没有任何好处。
+       */
+      cache: 'no-store'
     })
       .then(function (res) {
         return res.text().then(function (txt) {

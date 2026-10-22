@@ -148,7 +148,9 @@ function check(name, cond, extra) {
   check('能推进到选项节点', sawChoice);
   const optCount = qa('.choice-btn').length;
   check('选项按钮数量 >= 2', optCount >= 2, '实际 ' + optCount);
-  check('选项显示好感增减值', /\+?\d/.test(q('.choice-btn .eff') ? q('.choice-btn .eff').textContent : ''));
+  check('选项不显示好感加减',
+    !q('.choice-btn .eff'),
+    '选项旁不应再出现「男 -9 女 +9」这类数值，否则玩家会照着数值挑而不是顺着剧情走');
 
   // ----------------------------------------------------------
   // 5. 提交选择

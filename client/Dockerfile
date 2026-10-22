@@ -24,6 +24,30 @@ COPY client/ /usr/share/nginx/html/
 # 运行时配置默认值（compose 会用挂载覆盖）
 COPY client/docker/config.js /usr/share/nginx/html/config.js
 
+# ---------- 构建号打进 URL ----------
+#
+# index.html 里所有 JS/CSS 的引用都带 ?v=__LOVE_BUILD__，
+# 构建时把它替换成「本次静态资源的内容哈希」。
+#
+# 为什么需要：光靠 HTTP 缓存头不够 —— 中间的代理、CDN、
+# 甚至某些浏览器的启发式缓存都可能把上一版文件留下。
+# URL 一旦带上版本号，任何一版的资源 URL 都不同，
+# 缓存不可能张冠李戴。
+#
+# 替换失败也不会出事：占位符本身是合法字符串，
+# 退化成「不换版本号」，功能不受影响。
+RUN set -eux; \
+    stamp="$(cat /usr/share/nginx/html/index.html \
+                /usr/share/nginx/html/assets/js/*.js \
+                /usr/share/nginx/html/assets/js/pages/*.js \
+                /usr/share/nginx/html/assets/css/*.css \
+             | md5sum | cut -c1-8)"; \
+    echo "构建号: ${stamp}"; \
+    sed -i "s/__LOVE_BUILD__/${stamp}/g" /usr/share/nginx/html/index.html; \
+    if grep -q '__LOVE_BUILD__' /usr/share/nginx/html/index.html; then \
+      echo "构建号替换失败"; exit 1; \
+    fi
+
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=4s --start-period=10s --retries=3 \

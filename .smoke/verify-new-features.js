@@ -82,13 +82,16 @@ win.Audio = function () {
 win.eval(read('client/assets/js/music.js'));
 
 check('Music 已挂载', !!win.Music);
-check('音频路径正确', win.Music.SRC === './assets/audio/bgm.mp3', win.Music.SRC);
+// 配乐已改成分幕曲目（default + act1~5），不再有单一 bgm.mp3
+check('音频路径正确', win.Music.TRACKS.default === './assets/audio/default.mp3',
+  win.Music.TRACKS.default);
 
 win.Store.setMusicOn(true);
 win.Music.init();
 check('init 后调用了 play()', played.length > 0, 'played=' + played.length);
 check('play 用了正确路径',
-  played.length > 0 && played[0] === './assets/audio/bgm.mp3');
+  played.length > 0 && played[0] === './assets/audio/default.mp3',
+  played.length ? played[0] : '(未播放)');
 
 win.Music.pause();
 check('pause 真的暂停', pausedCount > 0);
