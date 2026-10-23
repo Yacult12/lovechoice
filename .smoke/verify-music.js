@@ -67,22 +67,52 @@ if (fs.existsSync(path.join(AUDIO, 'manifest.json'))) {
   ck('manifest 有 6 条', m.length === 6, '实际 ' + m.length);
   ck('每条约30 秒', m.every((x) => x.seconds >= 29 && x.seconds <= 31),
     JSON.stringify(m.map((x) => x.seconds)));
+  ck('manifest 只记录三首曲子',
+    new Set(m.map((x) => x.song)).size === 3,
+    JSON.stringify([...new Set(m.map((x) => x.song))]));
+  ck('manifest 记录了轮播顺序',
+    m.map((x) => x.order).join(',') === '1,1,2,2,3,3',
+    m.map((x) => x.order).join(','));
 }
 
 // ---------- 2. music.js ----------
 console.log('\n[2] music.js');
 const music = fs.readFileSync(path.join(ROOT, 'client', 'assets', 'js', 'music.js'), 'utf8');
 
+// TRACKS 现在由 PLAYLIST 动态生成，源码里不再有字面量键，
+// 所以改成断言「六个切片文件都在播放序列里」
 EXPECT.forEach((k) => {
-  ck('TRACKS 含 ' + k, new RegExp(k + "\\s*:").test(music));
+  ck('播放序列含 ' + k + '.mp3',
+    music.includes("'" + k + ".mp3'"),
+    '切片文件没进播放序列');
 });
 ck('默认曲是 default', /DEFAULT_TRACK\s*=\s*'default'/.test(music));
-ck('设置 loop = true', /loop\s*=\s*true/.test(music));
 ck('音量偏低（≤0.35）', /VOLUME\s*=\s*0\.\d+/.test(music) &&
   parseFloat((music.match(/VOLUME\s*=\s*(0\.\d+)/) || [])[1]) <= 0.35);
 ck('暴露 forChapter', /forChapter/.test(music));
 ck('暴露 forScene', /forScene/.test(music));
 ck('暴露 currentTrack（便于调试）', /currentTrack/.test(music));
+
+// ---------- 2b. 轮播规则 ----------
+console.log('\n[2b] 轮播规则');
+ck('只循环三首曲子',
+  (music.match(/name:\s*'/g) || []).length === 3,
+  '实际 ' + (music.match(/name:\s*'/g) || []).length + ' 首');
+ck('顺序为 稳稳的幸福 → La La Land → 我走以后',
+  /稳稳的幸福[\s\S]*?La La Land[\s\S]*?我走以后/.test(music),
+  '轮播顺序变了');
+ck('每首曲子两段切片',
+  (music.match(/clips:\s*\[[^\]]*\]/g) || []).every((c) => (c.match(/'/g) || []).length === 4),
+  '每首应该是 2 段');
+ck('关闭浏览器自带循环（自己控制接续）',
+  /loop\s*=\s*false/.test(music),
+  'loop=true 的话每段会无限重播，没有 10 秒静默');
+ck('静默 10 秒', /GAP_MS\s*=\s*10000/.test(music),
+  '要求播完停 10 秒再接下一首');
+ck('用 ended 事件接续', /onended/.test(music));
+ck('本曲末段才静默', /lastOfSong/.test(music),
+  '同一首的两段切片之间不该停');
+ck('暴露 PLAYLIST（便于调试）', /PLAYLIST/.test(music));
 
 // ---------- 3. 切歌逻辑 ----------
 console.log('\n[3] 切歌逻辑');
@@ -91,21 +121,12 @@ ck('换 src 后显式 load()', /a\.load\(\)|\.load\(\)/.test(music),
 ck('有淡入', /fadeIn/.test(music));
 ck('有淡出', /fadeOut/.test(music));
 ck('淡出后再换 src（避免硬切）',
-  /fadeOut[\s\S]{0,200}?a\.src\s*=/.test(music));
+  /fadeOut[\s\S]{0,400}?a\.src\s*=/.test(music));
 ck('play() 的 reject 被捕获（浏览器自动播放限制）',
   /\.catch\s*\(/.test(music));
-
-// 幕号映射只认 1~5
-const forChapter = music.match(/function forChapter[\s\S]*?\n  }/);
-if (forChapter) {
-  ck('幕号范围限制在 1~5',
-    /n\s*>=\s*1\s*&&\s*n\s*<=\s*5/.test(forChapter[0]),
-    '越界会让 act0/act6 之类的空文件名被请求');
-  ck('非 1~5 落到 default',
-    /key\s*=\s*DEFAULT_TRACK/.test(forChapter[0]));
-} else {
-  ck('找到 forChapter 函数', false);
-}
+ck('ended 后不会把已播完的段落重头播',
+  /a\.ended[\s\S]{0,120}?advance\(\)/.test(music),
+  'ended 的元素调 play() 会从 0 重播，听起来像卡带');
 
 // ---------- 4. 调用点 ----------
 console.log('\n[4] 调用点');
@@ -114,11 +135,7 @@ const app = fs.readFileSync(path.join(ROOT, 'client', 'assets', 'js', 'app.js'),
 
 ck('play.js 在 renderScene 里切歌', /function renderScene[\s\S]{0,600}?Music\.forChapter/.test(play),
   '挂错地方会导致跨章时不换曲');
-ck('play.js 从 node.chapterNo 取幕号', /node\s*&&\s*node\.chapterNo/.test(play));
 ck('app.js 在非剧情页切回 default', /Music\.forScene/.test(app));
-ck('app.js 的判断排除了 play 页',
-  /Music\.forScene[\s\S]{0,120}?!==\s*'play'/.test(app),
-  '若不排除，剧情页也会被切回 default');
 ck('app.js 在 render() 里调用（覆盖前进/后退）',
   /function render[\s\S]{0,3000}?Music\.forScene/.test(app));
 

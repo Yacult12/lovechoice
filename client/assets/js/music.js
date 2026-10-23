@@ -1,28 +1,32 @@
 /* ============================================================
-   背景音乐：全站单例，按「幕」切换曲目，各自循环播放前奏段
+   背景音乐：全站单例，三首曲子轮播
 
-   曲目安排
-   ----------
-     default 剧情之外（标题页 / 选线 / 图鉴 / 档案等非剧情界面）
-     act1~5  对应第 1~5 幕
+   曲目（三首，共 6 段切片，每段 30 秒）
+   --------------------------------------
+     《稳稳的幸福》(伴奏)      洋澜一
+       default.mp3   32-62s
+       act2.mp3      95-125s
+     《La La Land》(钢琴版)     知名不具
+       act1.mp3      58-88s
+       act5.mp3     150-180s
+     《我走以后》(降调氛围版)    水仙LONE
+       act3.mp3      72-102s
+       act4.mp3     145-175s
 
-   实际用到的三首曲子
-   --------------------
-     《稳稳的幸福》(伴奏)  洋澜一
-     《我走以后》(降调氛围版)  水仙LONE
-     《La La Land》(钢琴版)  知名不具
+   播放规则
+   --------
+     一首曲子的两段切片连着放，中间不停；
+     一首放完，安静 10 秒，再接下一首；
+     三首轮完一圈，回到第一首，继续。
 
-     default  稳稳的幸福 32s-62s   —— 界面/选线的安稳感
-     act1     La La Land  58s-88s   —— 初遇，钢琴轻快
-     act2     稳稳的幸福  95s-125s  —— 相处，日常的温度
-     act3     我走以后    72s-102s  —— 矛盾开始下沉
-     act4     我走以后   145s-175s  —— 别离，情绪最低处
-     act5     La La Land 150s-180s  —— 圆满，回到明亮
+   为什么要留这 10 秒
+     切片只有 30 秒，同一首循环播放听久了会腻；
+     而整首接近 4 分钟，全曲循环既占带宽也更容易听疲。
+     30 秒音乐 + 10 秒留白，听起来像「一段一段放给你听」，
+     读剧情的节奏也跟着被切成小节，读几段正好歇一下。
 
    设计要点
-   - 每首只循环播放 30 秒（切片时已加淡入淡出，接缝听不出来），
-     完整曲目接近 4 分钟，全曲循环会腻，而且占带宽。
-   - 切幕时淡出旧曲 → 换 src → 淡入新曲，避免硬切。
+   - 换曲用淡出 → 换 src → 淡入，避免硬切。
    - 浏览器策略：首次交互前不允许自动播放。进入 auth 页时用户
      正在点「注册」按钮（算交互），此时 play() 能成功。
    - 用户可在顶栏手动开关，状态记在 localStorage。
@@ -34,46 +38,83 @@
 (function (global) {
   'use strict';
 
-  /* 幕 → 曲目文件 */
-  var TRACKS = {
-    default: './assets/audio/default.mp3',
-    act1: './assets/audio/act1.mp3',
-    act2: './assets/audio/act2.mp3',
-    act3: './assets/audio/act3.mp3',
-    act4: './assets/audio/act4.mp3',
-    act5: './assets/audio/act5.mp3'
-  };
+  /*
+   * 轮播顺序：稳稳的幸福 → La La Land → 我走以后 → 稳稳的幸福 …
+   *
+   * 每首曲子可以有多段切片，按顺序连着放。
+   * 一首的最后一个切片放完，静默 GAP_MS 后接下一首。
+   */
+  var SONGS = [
+    {
+      name: '稳稳的幸福',
+      clips: ['default.mp3', 'act2.mp3']
+    },
+    {
+      name: 'La La Land',
+      clips: ['act1.mp3', 'act5.mp3']
+    },
+    {
+      name: '我走以后',
+      clips: ['act3.mp3', 'act4.mp3']
+    }
+  ];
 
-  /* 曲目名（供 UI 显示 / 调试） */
-  var TRACK_NAMES = {
-    default: '稳稳的幸福',
-    act1: 'La La Land',
-    act2: '稳稳的幸福',
-    act3: '我走以后',
-    act4: '我走以后',
-    act5: 'La La Land'
-  };
+  /* 扁平化成播放序列，每一项标记自己是不是本曲的最后一段 */
+  var PLAYLIST = [];
+  SONGS.forEach(function (song) {
+    song.clips.forEach(function (file, i) {
+      PLAYLIST.push({
+        song: song.name,
+        file: file,
+        lastOfSong: i === song.clips.length - 1
+      });
+    });
+  });
+
+  /* 完整文件路径表（调试与外部引用用） */
+  var TRACKS = {};
+  PLAYLIST.forEach(function (step) {
+    TRACKS[step.file.replace(/\.mp3$/, '')] = './assets/audio/' + step.file;
+  });
+
+  /* 曲子名 → 曲目 key（旧接口保留） */
+  var TRACK_NAMES = {};
+  SONGS.forEach(function (song) {
+    song.clips.forEach(function (file) {
+      TRACK_NAMES[file.replace(/\.mp3$/, '')] = song.name;
+    });
+  });
 
   var DEFAULT_TRACK = 'default';
   var FADE_MS = 900;
   var VOLUME = 0.32;
 
+  /* 一首放完后的静默时长 */
+  var GAP_MS = 10000;
+
   var audio = null;
-  var currentKey = null;
+  var currentIdx = -1;      // PLAYLIST 下标，-1 = 还没开始
   var lastError = null;
   var fadeTimer = null;
+  var gapTimer = null;
 
   function ensure() {
     if (audio) return audio;
     audio = new Audio();
-    audio.loop = true;
+    // 自己控制接续，不靠 loop ——
+    // 每段放完要静默 10 秒再接下一首，loop=true 做不到
+    audio.loop = false;
     audio.preload = 'auto';
     audio.volume = 0;
+    audio.onended = onEnded;
+    audio.onerror = onError;
     return audio;
   }
 
-  function srcFor(key) {
-    return TRACKS[key] || TRACKS[DEFAULT_TRACK];
+  /* 当前曲名（调试用） */
+  function currentSongName() {
+    if (currentIdx < 0) return SONGS[0].name;
+    return PLAYLIST[currentIdx].song;
   }
 
   /** 淡入到目标音量 */
@@ -119,21 +160,25 @@
     return global.Store && Store.musicOn ? Store.musicOn() : true;
   }
 
-  /** 载入并播放指定幕的曲子 */
-  function load(key, thenPlay) {
-    var a = ensure();
-    var next = srcFor(key);
-    if (a.src && a.src.indexOf(next) >= 0 && !a.paused) {
-      // 已经是这一首且在播，直接淡入即可
-      if (thenPlay && wantPlaying()) fadeIn(VOLUME);
-      return;
+  function clearGap() {
+    if (gapTimer) {
+      clearTimeout(gapTimer);
+      gapTimer = null;
     }
+  }
 
-    currentKey = key;
+  /** 切到播放序列的下一段并淡入播放 */
+  function advance() {
+    var a = ensure();
+    var nextIdx = (currentIdx + 1) % PLAYLIST.length;
+    var step = PLAYLIST[nextIdx];
+
     fadeOut(FADE_MS / 2, function () {
-      a.src = next;
+      currentIdx = nextIdx;
+      a.src = './assets/audio/' + step.file;
       try { a.load(); } catch (e) { /* 老浏览器忽略 */ }
-      if (!thenPlay || !wantPlaying()) return;
+      a.volume = 0;
+      if (!wantPlaying()) return;
       var p = a.play();
       if (p && typeof p.catch === 'function') {
         p.then(function () { fadeIn(VOLUME); })
@@ -144,40 +189,91 @@
     });
   }
 
-  /** 剧情页调用：按当前幕切曲 */
-  function forChapter(no) {
-    var key = DEFAULT_TRACK;
-    var n = Number(no);
-    if (n >= 1 && n <= 5) key = 'act' + n;
-    if (key === currentKey) {
-      // 同一幕重复进入，音量可能已被淡出到 0，兜一下
-      if (wantPlaying() && audio && audio.paused) load(key, true);
-      else if (wantPlaying() && audio && audio.volume < VOLUME * 0.5) fadeIn(VOLUME);
-      return;
-    }
-    load(key, true);
+  /** 从头开始（第一段） */
+  function start() {
+    currentIdx = -1;
+    advance();
   }
 
-  /** 非剧情页调用：切回默认曲 */
-  function forScene() {
-    if (currentKey === DEFAULT_TRACK) {
-      if (wantPlaying() && audio && audio.paused) load(DEFAULT_TRACK, true);
+  /** 一段放完 */
+  function onEnded() {
+    clearGap();
+    if (!wantPlaying()) return;
+    var step = PLAYLIST[currentIdx];
+    if (!step) return;
+
+    if (step.lastOfSong) {
+      // 一首曲子放完：静默 10 秒再接下一首
+      gapTimer = setTimeout(function () {
+        gapTimer = null;
+        if (!wantPlaying()) return;
+        advance();
+      }, GAP_MS);
       return;
     }
-    load(DEFAULT_TRACK, true);
+    // 同一首的下一段切片，直接接上，中间不停
+    advance();
+  }
+
+  /** 音频加载失败：跳过这一段，别让音乐卡死 */
+  function onError() {
+    if (!wantPlaying()) return;
+    advance();
+  }
+
+  /** 确保正在播（视口切回、开关打开时调用） */
+  function ensurePlaying() {
+    if (!wantPlaying()) return;
+    clearGap();
+    if (currentIdx < 0) { start(); return; }
+    var a = ensure();
+
+    /*
+     * 刚放完但还在 10 秒静默期里 —— 这时 audio 已经 ended。
+     * 直接 play() 会从头重播这一段（浏览器对 ended 的元素
+     * 调 play() 会把 currentTime 归零），听起来像卡带了。
+     * 正确做法是接着往下走。
+     */
+    if (a.ended) { advance(); return; }
+
+    if (a.paused) {
+      var p = a.play();
+      if (p && typeof p.catch === 'function') {
+        p.then(function () { fadeIn(VOLUME); })
+         .catch(function (err) { lastError = err; });
+      }
+    }
+  }
+
+  /**
+   * 剧情页调用：按当前幕切曲。
+   *
+   * 现在是纯轮播，不再按幕分配情绪 —— 每一段只有 30 秒，
+   * 轮播节奏下幕与幕之间本来就会交叉，强行按幕换曲只会频繁打断。
+   * 这里只保证音乐在放。
+   */
+  function forChapter(no) {
+    ensurePlaying();
+    return currentSongName();
+  }
+
+  /**
+   * 非剧情页调用。
+   *
+   * 同理，轮播是连续的，离开剧情页不该把歌切回开头 ——
+   * 否则每次进出剧情都会打断正在放的那一段。
+   */
+  function forScene() {
+    ensurePlaying();
   }
 
   function play() {
-    var key = currentKey || DEFAULT_TRACK;
-    if (!audio || !audio.src) { load(key, true); return; }
-    var p = audio.play();
-    if (p && typeof p.catch === 'function') {
-      p.then(function () { fadeIn(VOLUME); }).catch(function (e) { lastError = e; });
-    }
+    ensurePlaying();
   }
 
   function pause() {
     if (!audio) return;
+    clearGap();
     clearInterval(fadeTimer);
     fadeTimer = null;
     audio.pause();
@@ -190,11 +286,11 @@
 
   function init() {
     var want = wantPlaying();
-    if (want) load(DEFAULT_TRACK, true);
+    if (want) start();
 
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) return;
-      if (wantPlaying()) play();
+      ensurePlaying();
     });
 
     // 首次任意交互后再试一次，绕开自动播放限制
@@ -202,7 +298,7 @@
     var onFirstTouch = function () {
       if (tried) return;
       tried = true;
-      if (wantPlaying()) play();
+      if (wantPlaying()) ensurePlaying();
       document.removeEventListener('pointerdown', onFirstTouch);
       document.removeEventListener('keydown', onFirstTouch);
     };
@@ -214,17 +310,23 @@
     var on = wantPlaying();
     if (on) {
       if (global.Store) Store.setMusicOn(false);
+      clearGap();
       fadeOut(400);
       setTimeout(function () { if (audio) audio.pause(); }, 420);
     } else {
       if (global.Store) Store.setMusicOn(true);
-      load(currentKey || DEFAULT_TRACK, true);
+      ensurePlaying();
     }
     return !on;
   }
 
   function isOn() { return wantPlaying(); }
-  function currentTrack() { return currentKey || DEFAULT_TRACK; }
+
+  /** 当前曲目 key（调试用） */
+  function currentTrack() {
+    if (currentIdx < 0) return DEFAULT_TRACK;
+    return PLAYLIST[currentIdx].file.replace(/\.mp3$/, '');
+  }
 
   global.Music = {
     init: init,
@@ -238,6 +340,9 @@
     currentTrack: currentTrack,
     TRACKS: TRACKS,
     TRACK_NAMES: TRACK_NAMES,
-    currentTrackName: function () { return TRACK_NAMES[currentKey] || TRACK_NAMES[DEFAULT_TRACK]; }
+    SONGS: SONGS,
+    PLAYLIST: PLAYLIST,
+    GAP_MS: GAP_MS,
+    currentTrackName: currentSongName
   };
 })(window);

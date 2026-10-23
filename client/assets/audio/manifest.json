@@ -1,48 +1,66 @@
 [
   {
     "key": "default",
-    "act": "default",
+    "song": "稳稳的幸福",
+    "order": 1,
+    "segment": "a",
     "file": "default.mp3",
+    "start": 32,
     "seconds": 30,
     "kb": 470,
     "streams": "audio"
   },
   {
     "key": "act2",
-    "act": 2,
+    "song": "稳稳的幸福",
+    "order": 1,
+    "segment": "b",
     "file": "act2.mp3",
-    "seconds": 30,
-    "kb": 470,
-    "streams": "audio"
-  },
-  {
-    "key": "act3",
-    "act": 3,
-    "file": "act3.mp3",
-    "seconds": 30,
-    "kb": 470,
-    "streams": "audio"
-  },
-  {
-    "key": "act4",
-    "act": 4,
-    "file": "act4.mp3",
-    "seconds": 30,
-    "kb": 470,
-    "streams": "audio"
-  },
-  {
-    "key": "act5",
-    "act": 5,
-    "file": "act5.mp3",
+    "start": 95,
     "seconds": 30,
     "kb": 470,
     "streams": "audio"
   },
   {
     "key": "act1",
-    "act": 1,
+    "song": "La La Land",
+    "order": 2,
+    "segment": "a",
     "file": "act1.mp3",
+    "start": 58,
+    "seconds": 30,
+    "kb": 470,
+    "streams": "audio"
+  },
+  {
+    "key": "act5",
+    "song": "La La Land",
+    "order": 2,
+    "segment": "b",
+    "file": "act5.mp3",
+    "start": 150,
+    "seconds": 30,
+    "kb": 470,
+    "streams": "audio"
+  },
+  {
+    "key": "act3",
+    "song": "我走以后",
+    "order": 3,
+    "segment": "a",
+    "file": "act3.mp3",
+    "start": 72,
+    "seconds": 30,
+    "kb": 470,
+    "streams": "audio"
+  },
+  {
+    "key": "act4",
+    "song": "我走以后",
+    "order": 3,
+    "segment": "b",
+    "file": "act4.mp3",
+    "start": 145,
     "seconds": 30,
     "kb": 470,
     "streams": "audio"

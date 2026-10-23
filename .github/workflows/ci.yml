@@ -276,6 +276,10 @@ jobs:
         working-directory: .smoke
         run: node verify-ending-card.js
 
+      - name: 背景音乐轮播时序验证（19 项）
+        working-directory: .smoke
+        run: node verify-music-rotation.js
+
       - name: 汇总
         if: always()
         run: |

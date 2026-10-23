@@ -120,7 +120,8 @@ const testScripts = [
   ['smoke.js', 45],
   ['authz-final.js', 9],
   ['verify-ratelimit.js', 16],
-  ['verify-ending-card.js', 14]
+  ['verify-ending-card.js', 14],
+  ['verify-music-rotation.js', 19]
 ];
 testScripts.forEach(([f, n]) => {
   const mentioned = yml.includes(f);

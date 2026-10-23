@@ -72,24 +72,32 @@ check('清空后回到「他/她」', rt('他没有说话') === '他没有说话
 console.log('\n[2] 背景音乐 Music');
 const played = [];
 let pausedCount = 0;
+// 模拟 HTMLAudioElement：记录 onended，测试里手动触发
 win.Audio = function () {
   return {
-    src: '', loop: false, preload: '', volume: 1, paused: true,
-    play: function () { this.paused = false; played.push(this.src); return Promise.resolve(); },
+    src: '', loop: false, preload: '', volume: 1, paused: true, ended: false,
+    onended: null, onerror: null,
+    load: function () { this.ended = false; },
+    play: function () { this.paused = false; this.ended = false; played.push(this.src); return Promise.resolve(); },
     pause: function () { this.paused = true; pausedCount++; }
   };
 };
 win.eval(read('client/assets/js/music.js'));
 
 check('Music 已挂载', !!win.Music);
-// 配乐已改成分幕曲目（default + act1~5），不再有单一 bgm.mp3
+// 配乐已改成三首曲子轮播（每首两段切片），不再有单一 bgm.mp3
 check('音频路径正确', win.Music.TRACKS.default === './assets/audio/default.mp3',
   win.Music.TRACKS.default);
+check('只轮播三首曲子', win.Music.SONGS.length === 3,
+  '实际 ' + win.Music.SONGS.length);
+check('播放序列含 6 段', win.Music.PLAYLIST.length === 6,
+  '实际 ' + win.Music.PLAYLIST.length);
+check('静默时长为 10 秒', win.Music.GAP_MS === 10000, String(win.Music.GAP_MS));
 
 win.Store.setMusicOn(true);
 win.Music.init();
 check('init 后调用了 play()', played.length > 0, 'played=' + played.length);
-check('play 用了正确路径',
+check('第一首是 稳稳的幸福',
   played.length > 0 && played[0] === './assets/audio/default.mp3',
   played.length ? played[0] : '(未播放)');
 
@@ -97,8 +105,9 @@ win.Music.pause();
 check('pause 真的暂停', pausedCount > 0);
 
 const musicSrc = read('client/assets/js/music.js');
-check('设置了循环播放 audio.loop = true', /audio\.loop\s*=\s*true/.test(musicSrc),
-  '不循环的话音乐播完就停，不满足「不因剧情改变」');
+check('关闭浏览器自带循环（自己控制接续）',
+  /audio\.loop\s*=\s*false/.test(musicSrc),
+  'loop=true 的话每段无限重播，没有 10 秒静默');
 
 win.Store.setMusicOn(false);
 check('开关状态写入 localStorage',
