@@ -1,28 +1,22 @@
 /* ============================================================
    背景音乐：全站单例，三首曲子轮播
 
-   曲目（三首，共 6 段切片，每段 30 秒）
+   曲目（三首，每首一段 30 秒切片）
    --------------------------------------
-     《稳稳的幸福》(伴奏)      洋澜一
-       default.mp3   32-62s
-       act2.mp3      95-125s
-     《La La Land》(钢琴版)     知名不具
-       act1.mp3      58-88s
-       act5.mp3     150-180s
-     《我走以后》(降调氛围版)    水仙LONE
-       act3.mp3      72-102s
-       act4.mp3     145-175s
+     《稳稳的幸福》(伴奏)      洋澜一      steady.mp3     源 56s 起
+     《La La Land》(钢琴版)     知名不具    lalaland.mp3  源 46s 起
+     《我走以后》(降调氛围版)    水仙LONE    afterleave.mp3 源 57s 起
 
    播放规则
    --------
-     一首曲子的两段切片连着放，中间不停；
-     一首放完，安静 10 秒，再接下一首；
-     三首轮完一圈，回到第一首，继续。
+     一首放完，安静 5 秒，再接下一首；
+     三首轮完一圈，回到第一首，继续；
+     不按章节改变 —— 全站一条播放序列，走到哪里都在放。
 
-   为什么要留这 10 秒
-     切片只有 30 秒，同一首循环播放听久了会腻；
+   为什么每首只取一段
+     切片只有 30 秒，同一首反复循环听久了会腻；
      而整首接近 4 分钟，全曲循环既占带宽也更容易听疲。
-     30 秒音乐 + 10 秒留白，听起来像「一段一段放给你听」，
+     30 秒音乐 + 5 秒留白，听起来像「一段一段放给你听」，
      读剧情的节奏也跟着被切成小节，读几段正好歇一下。
 
    设计要点
@@ -41,34 +35,17 @@
   /*
    * 轮播顺序：稳稳的幸福 → La La Land → 我走以后 → 稳稳的幸福 …
    *
-   * 每首曲子可以有多段切片，按顺序连着放。
-   * 一首的最后一个切片放完，静默 GAP_MS 后接下一首。
+   * 每首曲子只取一段切片（起点是用户试听后定的）。
    */
   var SONGS = [
-    {
-      name: '稳稳的幸福',
-      clips: ['default.mp3', 'act2.mp3']
-    },
-    {
-      name: 'La La Land',
-      clips: ['act1.mp3', 'act5.mp3']
-    },
-    {
-      name: '我走以后',
-      clips: ['act3.mp3', 'act4.mp3']
-    }
+    { name: '稳稳的幸福', file: 'steady.mp3' },
+    { name: 'La La Land', file: 'lalaland.mp3' },
+    { name: '我走以后', file: 'afterleave.mp3' }
   ];
 
-  /* 扁平化成播放序列，每一项标记自己是不是本曲的最后一段 */
-  var PLAYLIST = [];
-  SONGS.forEach(function (song) {
-    song.clips.forEach(function (file, i) {
-      PLAYLIST.push({
-        song: song.name,
-        file: file,
-        lastOfSong: i === song.clips.length - 1
-      });
-    });
+  /* 扁平化成播放序列 */
+  var PLAYLIST = SONGS.map(function (song) {
+    return { song: song.name, file: song.file };
   });
 
   /* 完整文件路径表（调试与外部引用用） */
@@ -80,17 +57,15 @@
   /* 曲子名 → 曲目 key（旧接口保留） */
   var TRACK_NAMES = {};
   SONGS.forEach(function (song) {
-    song.clips.forEach(function (file) {
-      TRACK_NAMES[file.replace(/\.mp3$/, '')] = song.name;
-    });
+    TRACK_NAMES[song.file.replace(/\.mp3$/, '')] = song.name;
   });
 
-  var DEFAULT_TRACK = 'default';
+  var DEFAULT_TRACK = 'steady';
   var FADE_MS = 900;
   var VOLUME = 0.32;
 
   /* 一首放完后的静默时长 */
-  var GAP_MS = 10000;
+  var GAP_MS = 5000;
 
   var audio = null;
   var currentIdx = -1;      // PLAYLIST 下标，-1 = 还没开始
@@ -102,7 +77,7 @@
     if (audio) return audio;
     audio = new Audio();
     // 自己控制接续，不靠 loop ——
-    // 每段放完要静默 10 秒再接下一首，loop=true 做不到
+    // 每首放完要静默 5 秒再接下一首，loop=true 做不到
     audio.loop = false;
     audio.preload = 'auto';
     audio.volume = 0;
@@ -195,24 +170,18 @@
     advance();
   }
 
-  /** 一段放完 */
+  /** 一首放完 */
   function onEnded() {
     clearGap();
     if (!wantPlaying()) return;
-    var step = PLAYLIST[currentIdx];
-    if (!step) return;
+    if (currentIdx < 0) return;
 
-    if (step.lastOfSong) {
-      // 一首曲子放完：静默 10 秒再接下一首
-      gapTimer = setTimeout(function () {
-        gapTimer = null;
-        if (!wantPlaying()) return;
-        advance();
-      }, GAP_MS);
-      return;
-    }
-    // 同一首的下一段切片，直接接上，中间不停
-    advance();
+    // 一首曲子放完：静默 5 秒再接下一首
+    gapTimer = setTimeout(function () {
+      gapTimer = null;
+      if (!wantPlaying()) return;
+      advance();
+    }, GAP_MS);
   }
 
   /** 音频加载失败：跳过这一段，别让音乐卡死 */
@@ -229,7 +198,7 @@
     var a = ensure();
 
     /*
-     * 刚放完但还在 10 秒静默期里 —— 这时 audio 已经 ended。
+     * 刚放完但还在 5 秒静默期里 —— 这时 audio 已经 ended。
      * 直接 play() 会从头重播这一段（浏览器对 ended 的元素
      * 调 play() 会把 currentTime 归零），听起来像卡带了。
      * 正确做法是接着往下走。
@@ -246,11 +215,10 @@
   }
 
   /**
-   * 剧情页调用：按当前幕切曲。
+   * 剧情页调用。
    *
-   * 现在是纯轮播，不再按幕分配情绪 —— 每一段只有 30 秒，
-   * 轮播节奏下幕与幕之间本来就会交叉，强行按幕换曲只会频繁打断。
-   * 这里只保证音乐在放。
+   * 现在是纯轮播，不按章节改变 —— 全站一条播放序列，
+   * 走到哪里都在放。切章节不打断当前这一段。
    */
   function forChapter(no) {
     ensurePlaying();

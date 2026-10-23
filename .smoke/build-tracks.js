@@ -47,23 +47,22 @@ const FADE_SEC = 1.5;
  * 曲目定义：源文件 → 项目内的短名
  *
  * ⚠️ 这张表必须跟 client/assets/js/music.js 里的 SONGS 对得上。
- * 现在是三首曲子轮播（每首两段切片），
- * 所以同一个源文件会出现两次 —— 一次切前段，一次切后段。
  *
- * 历史：最初是 6 首不同的曲子按幕切换，
- * 后来换成了现在这三首，切片编号沿用旧的（act1~5 + default），
- * 以免改动文件名导致已部署的缓存和 manifest 失效。
+ * 现在是三首曲子轮播，每首只取一段（用户选的起点），
+ * 播完静默 5 秒再接下一首，三首循环，不按章节改变。
+ *
+ * 起点是用户试听后定的：
+ *   稳稳的幸福  56s —— 钢琴已经铺开，不至于还是空的前奏
+ *   La La Land  46s —— 副歌前的铺垫段，钢琴织体最厚
+ *   我走以后    57s —— 情绪下沉但还没到底，留得住
  */
 const TRACKS = [
   // 《稳稳的幸福》(伴奏) 洋澜一 —— 轮播第 1 首
-  { src: '洋澜一 - 稳稳的幸福 (伴奏).mp3',  name: 'default', act: 'song1-a', start: 32 },
-  { src: '洋澜一 - 稳稳的幸福 (伴奏).mp3',  name: 'act2',    act: 'song1-b', start: 95 },
+  { src: '洋澜一 - 稳稳的幸福 (伴奏).mp3',         name: 'steady',     song: '稳稳的幸福',   start: 56 },
   // 《La La Land》(钢琴版) 知名不具 —— 轮播第 2 首
-  { src: '知名不具 - La La Land钢琴版（爱乐之城）.mp3', name: 'act1', act: 'song2-a', start: 58 },
-  { src: '知名不具 - La La Land钢琴版（爱乐之城）.mp3', name: 'act5', act: 'song2-b', start: 150 },
+  { src: '知名不具 - La La Land钢琴版（爱乐之城）.mp3', name: 'lalaland', song: 'La La Land', start: 46 },
   // 《我走以后》(降调氛围版) 水仙LONE —— 轮播第 3 首
-  { src: '水仙LONE - 我走以后 (降调氛围版).mp3', name: 'act3', act: 'song3-a', start: 72 },
-  { src: '水仙LONE - 我走以后 (降调氛围版).mp3', name: 'act4', act: 'song3-b', start: 145 }
+  { src: '水仙LONE - 我走以后.mp3',                 name: 'afterleave', song: '我走以后',     start: 57 }
 ];
 
 const C = {
@@ -95,7 +94,7 @@ for (const t of TRACKS) {
   }
 
   const dur = duration(srcPath);
-  // 从 start 秒开始切（不同段取同一首歌的不同位置）
+  // 从 start 秒开始切（用户试听后定的起点）
   const start = Math.min(t.start || 0, Math.max(0, dur - 1));
   const seg = Math.min(LOOP_SEC, dur - start - 0.5);
   const fadeOutStart = Math.max(0, seg - FADE_SEC);
@@ -135,7 +134,8 @@ for (const t of TRACKS) {
   const clean = streams === 'audio';
   manifest.push({
     key: t.name,
-    act: t.act,
+    song: t.song,
+    order: manifest.length + 1,
     file: path.basename(outFile),
     start: start,
     seconds: seg,
@@ -143,8 +143,8 @@ for (const t of TRACKS) {
     streams
   });
 
-  console.log((clean ? C.g('  ✓ ') : C.r('  ✗ ')) + t.name.padEnd(9) +
-    C.d(t.act));
+  console.log((clean ? C.g('  ✓ ') : C.r('  ✗ ')) + t.name.padEnd(11) +
+    C.d(t.song + '  ' + start.toFixed(0) + 's 起'));
   console.log(C.d('      ' + path.basename(t.src).slice(0, 52)));
   console.log((clean ? C.d : C.r)('      ' + start.toFixed(1) + 's ~ ' +
     (start + seg).toFixed(1) + 's  ' +
@@ -160,3 +160,21 @@ console.log('');
 console.log(C.d('  共 ' + manifest.length + ' 首，合计 ' +
   (total / 1024).toFixed(1) + ' MB'));
 console.log('');
+
+/*
+ * 清掉上一版遗留的旧切片。
+ *
+ * 为什么必须清：轮播表改过名字（default/act1~5 → steady/lalaland/afterleave），
+ * 旧文件留在目录里会被打包进镜像，白占带宽，
+ * 而且 manifest 里没有它们，下次重新切片时容易误以为还在用。
+ */
+const keep = new Set(manifest.map((m) => m.file));
+const stale = fs.readdirSync(DST).filter((f) => f.endsWith('.mp3') && !keep.has(f));
+if (stale.length) {
+  console.log(C.b('  清理旧切片:'));
+  for (const f of stale) {
+    fs.unlinkSync(path.join(DST, f));
+    console.log(C.d('    - ' + f));
+  }
+  console.log('');
+}

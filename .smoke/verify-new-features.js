@@ -85,20 +85,20 @@ win.Audio = function () {
 win.eval(read('client/assets/js/music.js'));
 
 check('Music 已挂载', !!win.Music);
-// 配乐已改成三首曲子轮播（每首两段切片），不再有单一 bgm.mp3
-check('音频路径正确', win.Music.TRACKS.default === './assets/audio/default.mp3',
-  win.Music.TRACKS.default);
+// 配乐已改成三首曲子轮播（每首一段切片），不再有单一 bgm.mp3
+check('音频路径正确', win.Music.TRACKS.steady === './assets/audio/steady.mp3',
+  win.Music.TRACKS.steady);
 check('只轮播三首曲子', win.Music.SONGS.length === 3,
   '实际 ' + win.Music.SONGS.length);
-check('播放序列含 6 段', win.Music.PLAYLIST.length === 6,
+check('播放序列含 3 段', win.Music.PLAYLIST.length === 3,
   '实际 ' + win.Music.PLAYLIST.length);
-check('静默时长为 10 秒', win.Music.GAP_MS === 10000, String(win.Music.GAP_MS));
+check('静默时长为 5 秒', win.Music.GAP_MS === 5000, String(win.Music.GAP_MS));
 
 win.Store.setMusicOn(true);
 win.Music.init();
 check('init 后调用了 play()', played.length > 0, 'played=' + played.length);
 check('第一首是 稳稳的幸福',
-  played.length > 0 && played[0] === './assets/audio/default.mp3',
+  played.length > 0 && played[0] === './assets/audio/steady.mp3',
   played.length ? played[0] : '(未播放)');
 
 win.Music.pause();
@@ -107,7 +107,7 @@ check('pause 真的暂停', pausedCount > 0);
 const musicSrc = read('client/assets/js/music.js');
 check('关闭浏览器自带循环（自己控制接续）',
   /audio\.loop\s*=\s*false/.test(musicSrc),
-  'loop=true 的话每段无限重播，没有 10 秒静默');
+  'loop=true 的话每段无限重播，没有静默间隔');
 
 win.Store.setMusicOn(false);
 check('开关状态写入 localStorage',

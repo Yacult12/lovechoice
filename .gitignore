@@ -114,3 +114,15 @@ docker-compose.override.yml
 # 测试截图是临时产物，不入库
 .smoke/shot-*.png
 .smoke/*.png
+
+# ============================================================
+#   音乐素材（版权，不入库）
+#
+#   audio-src/  下载的原曲（含网易云加密的 .ncm），几十 MB
+#   samples/    试听切片，生成物
+#
+#   两者都可以用 .smoke/decrypt-ncm.mjs + make-samples.js
+#   从你自己的音乐目录重新生成 —— 不入库，也不该入库。
+# ============================================================
+.smoke/audio-src/
+.smoke/samples/

@@ -3,15 +3,14 @@
  *   node verify-music-rotation.js
  *
  * 用假的 Audio 对象模拟 HTMLAudioElement，
- * 手动触发 onended，看音乐是不是按「30 秒 → 停 10 秒 → 下一首」接续。
+ * 手动触发 onended，看音乐是不是按「30 秒 → 停 5 秒 → 下一首」接续。
  *
  * 检查项
- *   1. 第一首从 稳稳的幸福 的第一段开始
- *   2. 同一首的两段切片之间不停顿
- *   3. 一首放完静默 10 秒，然后接下一首
- *   4. 三首轮完一圈回到第一首
- *   5. 轮播期间切页面/切幕不会打断当前这一段
- *   6. 关掉音乐后不再自动续播
+ *   1. 第一首是 稳稳的幸福
+ *   2. 一首放完静默 5 秒，然后接下一首
+ *   3. 三首轮完一圈回到第一首
+ *   4. 轮播期间切页面/切幕不会打断当前这一段
+ *   5. 关掉音乐后不再自动续播
  */
 const fs = require('fs');
 const path = require('path');
@@ -109,66 +108,50 @@ console.log('[1] 启动');
 win.Store.setMusicOn(true);
 win.Music.init();
 ck('init 后开始播放', played.length === 1, 'played=' + played.length);
-ck('第一段是 稳稳的幸福 的开头',
-  played[0] && played[0].endsWith('/default.mp3'), played[0]);
+ck('第一首是 稳稳的幸福',
+  played[0] && played[0].endsWith('/steady.mp3'), played[0]);
 
-// ---------- 同一首的第二段：不停顿 ----------
-console.log('\n[2] 同一首的两段切片之间不停顿');
+// ---------- 一首放完：静默 5 秒 ----------
+console.log('\n[2] 一首放完后静默 5 秒再接下一首');
 inst.finish();
-ck('切到第二段时立刻播放，没有静默', played.length === 2, 'played=' + played.length);
-ck('第二段是 act2.mp3（稳稳的幸福 后半）',
-  played[1] && played[1].endsWith('/act2.mp3'), played[1]);
-ck('没有排定 10 秒静默计时器', pendingTimers().length === 0,
-  'pending=' + pendingTimers().length);
-
-// ---------- 一首放完：静默 10 秒 ----------
-console.log('\n[3] 一首放完后静默 10 秒再接下一首');
-inst.finish();
-ck('本曲末段放完，暂不播下一段', played.length === 2, 'played=' + played.length);
+ck('放完暂不播下一首', played.length === 1, 'played=' + played.length);
 const gap = pendingTimers();
-ck('排定了一个 10 秒的静默计时器', gap.length === 1, 'pending=' + gap.length);
-ck('静默时长正好 10 秒',
-  gap.length === 1 && gap[0].at === now + 10000,
+ck('排定了一个静默计时器', gap.length === 1, 'pending=' + gap.length);
+ck('静默时长正好 5 秒',
+  gap.length === 1 && gap[0].at === now + 5000,
   gap.length ? 'at=' + gap[0].at + ' now=' + now : '无计时器');
 
-advanceTime(9000);
-ck('9 秒时还没开始下一首', played.length === 2, 'played=' + played.length);
+advanceTime(4000);
+ck('4 秒时还没开始下一首', played.length === 1, 'played=' + played.length);
 advanceTime(1500);
-ck('10 秒后开始下一首', played.length === 3, 'played=' + played.length);
-ck('下一首是 La La Land（act1.mp3）',
-  played[2] && played[2].endsWith('/act1.mp3'), played[2]);
+ck('5 秒后开始下一首', played.length === 2, 'played=' + played.length);
+ck('下一首是 La La Land',
+  played[1] && played[1].endsWith('/lalaland.mp3'), played[1]);
 
 // ---------- 继续轮播 ----------
-console.log('\n[4] 三首轮一圈');
-inst.finish();              // act1 → act5（同一首第二段）
-ck('La La Land 第二段是 act5.mp3',
-  played[3] && played[3].endsWith('/act5.mp3'), played[3]);
+console.log('\n[3] 三首轮一圈');
+inst.finish();
+ck('La La Land 放完先静默', played.length === 2, 'played=' + played.length);
+advanceTime(5000);
+ck('静默后接 我走以后',
+  played[2] && played[2].endsWith('/afterleave.mp3'), played[2]);
 
-inst.finish();              // act5 → 静默 10 秒 → act3（我走以后）
-ck('La La Land 放完先静默', played.length === 4, 'played=' + played.length);
-advanceTime(10000);
-ck('静默后接 我走以后（act3.mp3）',
-  played[4] && played[4].endsWith('/act3.mp3'), played[4]);
-
-inst.finish();              // act3 → act4（同一首第二段）
-ck('我走以后 第二段是 act4.mp3',
-  played[5] && played[5].endsWith('/act4.mp3'), played[5]);
-
-inst.finish();              // act4 → 静默 → 回到 default（轮完一圈）
-advanceTime(10000);
-ck('三首轮完回到 稳稳的幸福（default.mp3）',
-  played[6] && played[6].endsWith('/default.mp3'), played[6]);
+inst.finish();
+ck('我走以后 放完先静默', played.length === 3, 'played=' + played.length);
+advanceTime(5000);
+ck('三首轮完回到 稳稳的幸福',
+  played[3] && played[3].endsWith('/steady.mp3'), played[3]);
 
 // ---------- 切页面 / 切幕不打断 ----------
-console.log('\n[5] 切页面与切幕不打断当前段');
+console.log('\n[4] 切页面与切幕不打断当前段');
 const before = played.length;
 win.Music.forChapter(3);
 win.Music.forScene();
 ck('没有插播新的一段', played.length === before, 'played=' + played.length);
-ck('当前 src 没被改掉', inst.src.endsWith('/default.mp3'), inst.src);
+ck('当前 src 没被改掉', inst.src.endsWith('/steady.mp3'), inst.src);
 
 // ---------- 关掉音乐 ----------
-console.log('\n[6] 关掉后不再续播');
+console.log('\n[5] 关掉后不再续播');
 win.Store.setMusicOn(false);
 win.Music.pause();
 const after = played.length;
