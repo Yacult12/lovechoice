@@ -114,6 +114,8 @@ docker-compose.override.yml
 # 测试截图是临时产物，不入库
 .smoke/shot-*.png
 .smoke/*.png
+# 插画预览页是生成物（.smoke/render-scenes.js 可以随时重建）
+.smoke/scene-preview.html
 
 # ============================================================
 #   音乐素材（版权，不入库）

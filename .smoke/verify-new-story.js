@@ -134,17 +134,18 @@ function soft(name, cond, extra) {
   }
   ck(`${bgs.length} 张背景全部可达`, bgBad.length === 0, '失败: ' + bgBad.join(', '));
 
-  // 插图
-  const illuDir = path.join(ROOT, 'client', 'assets', 'img', 'illu');
+  // 章节插画（连环画五格）
+  const illuDir = path.join(ROOT, 'client', 'assets', 'img', 'scene');
   const illus = fs.readdirSync(illuDir).filter((f) => f.endsWith('.svg'));
   const illuBad = [];
   for (const f of illus) {
-    const r = await fetch(`${BASE}/assets/img/illu/${f}`);
+    const r = await fetch(`${BASE}/assets/img/scene/${f}`);
     if (!r.ok) illuBad.push(`${f}(${r.status})`);
   }
-  ck(`${illus.length} 张插图全部可达`, illuBad.length === 0, '失败: ' + illuBad.join(', '));
+  ck(`${illus.length} 张章节插画全部可达`, illuBad.length === 0, '失败: ' + illuBad.join(', '));
+  ck('插画有 5 格（每章一格）', illus.length === 5, '实际 ' + illus.length);
 
-  // 剧本里引用的插图名必须都在 illu 目录里
+  // 启示引用的插图名必须都在 scene 目录里
   const insightsSrc = fs.readFileSync(
     path.join(ROOT, 'server', 'src', 'data', 'insights.js'), 'utf8');
   const usedIllu = [...insightsSrc.matchAll(/illustration:\s*'([^']+)'/g)].map((m) => m[1]);
@@ -157,7 +158,7 @@ function soft(name, cond, extra) {
   console.log(C.b('[4] 音频'));
   const audioDir = path.join(ROOT, 'client', 'assets', 'audio');
   const tracks = fs.readdirSync(audioDir).filter((f) => f.endsWith('.mp3'));
-  ck('有 6 个音频文件', tracks.length === 6, '实际 ' + tracks.length);
+  ck('有 3 个音频文件', tracks.length === 3, '实际 ' + tracks.length);
   for (const t of tracks) {
     try {
       const r = await fetch(`${BASE}/assets/audio/${t}`, { method: 'HEAD' });

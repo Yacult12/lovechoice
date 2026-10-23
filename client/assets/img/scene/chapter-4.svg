@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" role="img" aria-label="第四格 · 别离：一人独自向前走，背影平静；身后散落淡淡的回忆">
+<!--
+  第四格 · 别离
+  一人独自向前走，背影平静；身后散落淡淡的回忆
+
+  手绘简笔画连环画的一格。描边用 currentColor：
+  放进浅色纸页时是柔和黑线，放进暗色舞台时是淡白线。
+-->
+<g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M56 430 H904" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.16"/>
+  <g opacity="0.34">
+    <g transform="translate(214 430) scale(0.86 1)">
+    <circle cx="0" cy="-158" r="14" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M-13 -165 q13 -13 26 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -104 L-16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L20 -104 L16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+    <g transform="translate(316 430) scale(0.86 1)">
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="-156" r="13" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -104 L-16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L20 -104 L16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  </g>
+  <g opacity="0.3">
+    <circle cx="150" cy="300" r="1.8" fill="currentColor"/>
+    <circle cx="380" cy="268" r="1.5" fill="currentColor"/>
+    <circle cx="262" cy="236" r="1.3" fill="currentColor"/>
+  </g>
+<g transform="translate(664 430) scale(1 1)">
+    <circle cx="0" cy="-158" r="14" fill="currentColor" fill-opacity="0.03" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -104 L-16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L20 -104 L16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-14 0 M0 -50 L14 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</g>
+</svg>

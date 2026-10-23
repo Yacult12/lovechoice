@@ -276,6 +276,40 @@ a { color: var(--accent); text-decoration: none; }
   background: linear-gradient(180deg, rgba(11, 10, 16, 0.35) 0%, rgba(11, 10, 16, 0.55) 55%, rgba(11, 10, 16, 0.94) 100%);
 }
 
+/*
+ * 背景人物层
+ * ----------------
+ * 画面的远景：五格连环画里那些「各自过着自己生活」的人。
+ *
+ * 关键约束（三条都不能破）：
+ *   1. z-index: 1 —— 必须在立绘（3）和对白（5）下面。
+ *      放高了会盖住文字，插画里的人物头会压到对话框上。
+ *   2. pointer-events: none —— 整层不接收点击。
+ *      玩家点画面空白处应该推进对话，不能被这层拦下；
+ *      选项按钮在别的层上，照常点。
+ *   3. 描边用 currentColor，插画本身不带背景色。
+ *      这里的 color 决定线条是深是浅：暗底上给淡白线，
+ *      浅色纸页上给近黑的线 —— 同一份文件适配两种底色。
+ */
+.scene-figures {
+  position: absolute; inset: 0; z-index: 1;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.42);
+  transition: opacity .45s var(--ease);
+  overflow: hidden;
+}
+.scene-figure {
+  position: absolute;
+  left: 50%; bottom: 0;
+  transform: translateX(-50%);
+  width: min(118%, 1500px);
+  height: auto;
+  opacity: .85;
+  /* 顶部再压一点，让人物像站在远处 */
+  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
+}
+
 .stage-top {
   position: relative; z-index: 6; flex: 0 0 auto;
   display: flex; align-items: center; gap: 10px;
@@ -625,17 +659,38 @@ a { color: var(--accent); text-decoration: none; }
 .ending-card .final-aff .v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .ending-card .final-aff .k { font-size: 11px; color: var(--text-faint); }
 
-/* 章节过场 */
+/* 章节过场 —— 浅色纸页，像翻开绘本的一页 */
 .chapter-card {
   position: absolute; inset: 0; z-index: 35;
   display: grid; place-items: center;
-  background: rgba(5, 4, 9, 0.94);
+  padding: 24px 18px;
+  background: rgba(5, 4, 9, 0.86);
   animation: fadeIn 0.5s var(--ease);
 }
-.chapter-card .inner { text-align: center; animation: popIn 0.6s var(--ease); }
-.chapter-card .no { font-size: 13px; letter-spacing: 6px; color: var(--text-faint); margin-bottom: 10px; }
-.chapter-card .tt { font-size: 32px; font-weight: 700; letter-spacing: 3px; }
-.chapter-card .rule { width: 60px; height: 1px; background: var(--accent); margin: 20px auto; }
+.chapter-card .inner {
+  text-align: center;
+  animation: popIn 0.6s var(--ease);
+  width: 100%; max-width: 560px;
+  padding: 34px 30px 30px;
+  border-radius: var(--radius-l);
+  /* 纸页：极浅暖白，和插画的浅灰线条是一套 */
+  background: #faf9f6;
+  color: #2c2b28;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.6);
+}
+.chapter-card .no { font-size: 13px; letter-spacing: 6px; color: #a19c94; margin-bottom: 10px; }
+.chapter-card .tt { font-size: 32px; font-weight: 700; letter-spacing: 3px; color: #2c2b28; }
+.chapter-card .rule { width: 60px; height: 1px; background: #c9c3b8; margin: 20px auto; }
+
+/* 过场卡里的那格连环画 */
+.chapter-illo-wrap { margin-top: 22px; }
+.chapter-illo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  /* 插画用 currentColor 描边，纸页上给近黑的柔和线条 */
+  color: #33322e;
+}
 
 /* ============================================================
    本章启示
@@ -656,46 +711,50 @@ a { color: var(--accent); text-decoration: none; }
   width: 100%; max-width: 620px;
   text-align: center;
   animation: popIn 0.6s var(--ease);
+  /* 浅色纸页 —— 和章节过场卡同一套气质 */
+  padding: 30px 30px 26px;
+  border-radius: var(--radius-l);
+  background: #faf9f6;
+  color: #2c2b28;
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.6);
 }
 
 /* 插图 */
 .insight-illo {
   width: 100%;
   aspect-ratio: 16 / 9;
-  max-height: 42dvh;
-  object-fit: cover;
-  border-radius: var(--radius-l);
-  border: 1px solid var(--border);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+  max-height: 34dvh;
+  object-fit: contain;
   margin-bottom: 24px;
-  background: var(--bg-1);
+  /* 插画用 currentColor 描边，纸页上给近黑的柔和线条 */
+  color: #33322e;
 }
 
 /* 标题与正文 */
 .insight-kicker {
-  font-size: 11px; letter-spacing: 6px; color: var(--text-faint);
+  font-size: 11px; letter-spacing: 6px; color: #a19c94;
   margin-bottom: 10px;
 }
 .insight-title {
   font-size: 24px; font-weight: 700; letter-spacing: 2px;
-  color: var(--warn);
+  color: #2c2b28;
   margin-bottom: 18px;
 }
 .insight-rule {
-  width: 56px; height: 1px; background: var(--accent);
-  margin: 0 auto 20px; opacity: 0.7;
+  width: 56px; height: 1px; background: #c9c3b8;
+  margin: 0 auto 20px;
 }
 .insight-body {
   font-size: 15px;
   line-height: 2;
-  color: var(--text-dim);
+  color: #55524b;
   text-align: left;
   /* 正文用引号包裹，视觉上像一段赠言 */
   padding: 0 4px;
 }
 .insight-hint {
   margin-top: 26px;
-  font-size: 12px; color: var(--text-faint); letter-spacing: 2px;
+  font-size: 12px; color: #a19c94; letter-spacing: 2px;
   animation: insightPulse 2.4s ease-in-out infinite;
 }
 @keyframes insightPulse {
@@ -705,11 +764,14 @@ a { color: var(--accent); text-decoration: none; }
 
 /* 窄屏：插图压缩，正文缩排 */
 @media (max-width: 560px) {
-  .insight-inner { max-width: 100%; }
-  .insight-illo { max-height: 30dvh; margin-bottom: 18px; }
+  .insight-inner { max-width: 100%; padding: 22px 18px 20px; }
+  .insight-illo { max-height: 24dvh; margin-bottom: 18px; }
   .insight-title { font-size: 19px; letter-spacing: 1px; }
   .insight-body { font-size: 14px; line-height: 1.95; }
   .insight-kicker { letter-spacing: 4px; }
+  .chapter-card .inner { padding: 24px 18px 22px; }
+  .chapter-card .tt { font-size: 24px; letter-spacing: 2px; }
+  .chapter-illo-wrap { margin-top: 16px; }
 }
 
 /* ============================================================

@@ -359,154 +359,16 @@ const BACKGROUNDS = {
   },
 };
 
-/* ============================================================
-   插图（章节启示 / 过场）
-   ============================================================ */
-
-/**
- * 象征性场景插图。
- * 用抽象几何 + 剪影表达概念，不画具体人物。
+/*
+ * 章节插画（连环画五格）已移到 .smoke/build-scenes.js。
+ *
+ * 原因：这一版换成了「极简单线简笔画」的手绘风格 —— 柔和细轮廓、
+ * 极浅灰淡填充、透明背景，跟这里原有的「渐变 + 剪影」风格
+ * 完全不是一套东西，硬放在一个文件里只会互相拖累。
  */
-const ILLUSTRATIONS = {
-  // 第一章：两个人在聚会上相遇，但中间隔着距离
-  meet: (id) => {
-    const d = bgDefs(id, '#3b2f52', '#4a3a60', '#2a2038', '#ff9db0', 0.5, 0.4);
-    return {
-      defs: d + VIGNETTE,
-      inner: `
-<circle cx="330" cy="250" r="52" fill="#ff9db0" opacity="0.22"/>
-<circle cx="630" cy="250" r="52" fill="#8fa8d8" opacity="0.22"/>
-<path d="M330 316 q-10 84 -50 116 h100 q-40 -32 -50 -116 z" fill="#ff9db0" opacity="0.3"/>
-<path d="M630 316 q10 84 50 116 h-100 q40 -32 50 -116 z" fill="#8fa8d8" opacity="0.3"/>
-<!-- 中间的心，尚未连起 -->
-<path d="M480 196 c-16 -22 -56 -8 -56 20 c0 26 34 44 56 62 c22 -18 56 -36 56 -62 c0 -28 -40 -42 -56 -20 z"
-      fill="none" stroke="#ff9db0" stroke-width="3" stroke-dasharray="7 8" opacity="0.75"/>
-<rect x="0" y="0" width="${BW}" height="${BH}" fill="url(#vg)"/>`
-    };
-  },
-
-  // 第一章启示：爱自己 —— 自己站稳
-  selflove: (id) => {
-    const d = bgDefs(id, '#2f4560', '#3d5a7a', '#1f2d40', '#9fd8ff', 0.5, 0.5);
-    return {
-      defs: d + VIGNETTE,
-      inner: `
-<circle cx="480" cy="230" r="56" fill="#9fd8ff" opacity="0.24"/>
-<path d="M480 300 q-12 100 -56 140 h112 q-44 -40 -56 -140 z" fill="#9fd8ff" opacity="0.3"/>
-<!-- 脚下的地面线 -->
-<path d="M300 452 L660 452" stroke="#9fd8ff" stroke-width="3" opacity="0.5"/>
-<!-- 自己给自己撑起的伞 -->
-<path d="M330 220 a150 150 0 0 1 300 0 z" fill="none" stroke="#9fd8ff" stroke-width="3.5" opacity="0.7"/>
-<rect x="476" y="220" width="8" height="230" rx="4" fill="#9fd8ff" opacity="0.55"/>
-<circle cx="480" cy="200" r="8" fill="#9fd8ff" opacity="0.8"/>
-<rect x="0" y="0" width="${BW}" height="${BH}" fill="url(#vg)"/>`
-    };
-  },
-
-  // 第二章：边界 —— 两个人之间留出呼吸的距离
-  boundary: (id) => {
-    const d = bgDefs(id, '#3d3a52', '#4a4660', '#282636', '#b8a8ff', 0.5, 0.5);
-    return {
-      defs: d + VIGNETTE,
-      inner: `
-<circle cx="300" cy="250" r="48" fill="#ff9db0" opacity="0.22"/>
-<circle cx="660" cy="250" r="48" fill="#8fa8d8" opacity="0.22"/>
-<path d="M300 312 q-10 80 -46 110 h92 q-36 -30 -46 -110 z" fill="#ff9db0" opacity="0.28"/>
-<path d="M660 312 q10 80 46 110 h-92 q36 -30 46 -110 z" fill="#8fa8d8" opacity="0.28"/>
-<!-- 中间的留白：虚线圆 -->
-<circle cx="480" cy="260" r="86" fill="none" stroke="#b8a8ff" stroke-width="2.5" stroke-dasharray="9 11" opacity="0.6"/>
-<!-- 各自的地盘 -->
-<path d="M180 452 q60 -40 120 -22" stroke="#ff9db0" stroke-width="3" fill="none" opacity="0.4"/>
-<path d="M660 452 q60 -40 120 -22" stroke="#8fa8d8" stroke-width="3" fill="none" opacity="0.4"/>
-<rect x="0" y="0" width="${BW}" height="${BH}" fill="url(#vg)"/>`
-    };
-  },
-
-  // 第二章启示：珍惜 —— 手里捧着的东西
-  cherish: (id) => {
-    const d = bgDefs(id, '#4a3a2c', '#5c4838', '#332820', '#ffcf8f', 0.5, 0.4);
-    return {
-      defs: d + VIGNETTE,
-      inner: `
-<!-- 一双手捧着光 -->
-<path d="M300 400 q90 -70 180 -34 q90 -36 180 34 q-90 40 -180 26 q-90 14 -180 -26 z"
-      fill="#e8d9c8" opacity="0.24"/>
-<circle cx="480" cy="286" r="52" fill="#ffcf8f" opacity="0.42"/>
-<circle cx="480" cy="286" r="80" fill="#ffcf8f" opacity="0.14"/>
-<!-- 细小的碎片：曾经的好 -->
-<circle cx="404" cy="330" r="5" fill="#ffd89b" opacity="0.55"/>
-<circle cx="556" cy="330" r="5" fill="#ffd89b" opacity="0.55"/>
-<circle cx="440" cy="366" r="4" fill="#ffd89b" opacity="0.4"/>
-<circle cx="524" cy="368" r="4" fill="#ffd89b" opacity="0.4"/>
-<rect x="0" y="0" width="${BW}" height="${BH}" fill="url(#vg)"/>`
-    };
-  },
-
-  // 第三章：止损 —— 剪断的线
-  cut: (id) => {
-    const d = bgDefs(id, '#402c34', '#503540', '#2c1e24', '#ff8f9a', 0.5, 0.5);
-    return {
-      defs: d + VIGNETTE,
-      inner: `
-<path d="M200 270 Q360 220 460 268" stroke="#ff9db0" stroke-width="4" fill="none" opacity="0.6"/>
-<path d="M500 272 Q600 320 760 270" stroke="#8fa8d8" stroke-width="4" fill="none" opacity="0.6"/>
-<!-- 断口 -->
-<path d="M478 250 l-18 34 M494 258 l14 30" stroke="#ffd89b" stroke-width="3" opacity="0.7"/>
-<circle cx="480" cy="268" r="9" fill="#ffd89b" opacity="0.5"/>
-<!-- 剪刀的抽象：两道交叉的线 -->
-<path d="M400 120 L560 250" stroke="#e8e2f0" stroke-width="3" opacity="0.35"/>
-<path d="M560 120 L400 250" stroke="#e8e2f0" stroke-width="3" opacity="0.35"/>
-<circle cx="480" cy="270" r="120" fill="none" stroke="#ff8f9a" stroke-width="2" stroke-dasharray="6 12" opacity="0.35"/>
-<rect x="0" y="0" width="${BW}" height="${BH}" fill="url(#vg)"/>`
-    };
-  },
-
-  // 第四章：放下 —— 松手
-  letgo: (id) => {
-    const d = bgDefs(id, '#2c3348', '#3a4258', '#1e2430', '#a8b8d8', 0.5, 0.3);
-    return {
-      defs: d + VIGNETTE,
-      inner: `
-<!-- 手松开，线向上飘走 -->
-<path d="M300 420 q90 -46 180 -14" stroke="#e8d9c8" stroke-width="3" fill="none" opacity="0.4"/>
-<path d="M480 406 C480 340 460 300 476 250 C490 204 470 160 500 120"
-      stroke="#a8b8d8" stroke-width="2.6" fill="none" opacity="0.55" stroke-dasharray="10 9"/>
-<circle cx="500" cy="116" r="9" fill="#a8b8d8" opacity="0.5"/>
-<!-- 远处的一扇门 -->
-<rect x="740" y="150" width="130" height="200" rx="6" fill="#ffd89b" opacity="0.12"/>
-<rect x="740" y="150" width="130" height="200" rx="6" fill="none" stroke="#ffd89b" stroke-width="2" opacity="0.3"/>
-<circle cx="852" cy="256" r="4" fill="#ffd89b" opacity="0.5"/>
-<rect x="0" y="0" width="${BW}" height="${BH}" fill="url(#vg)"/>`
-    };
-  },
-
-  // 第五章：安全感 —— 两个完整的人并肩
-  together: (id) => {
-    const d = bgDefs(id, '#4a3a5e', '#5c4a72', '#2e2540', '#ffc8d8', 0.5, 0.3);
-    return {
-      defs: d + VIGNETTE,
-      inner: `
-<!-- 各自脚下有地 -->
-<path d="M250 452 L430 452" stroke="#8fa8d8" stroke-width="3" opacity="0.45"/>
-<path d="M530 452 L710 452" stroke="#ff9db0" stroke-width="3" opacity="0.45"/>
-<circle cx="340" cy="250" r="48" fill="#8fa8d8" opacity="0.26"/>
-<circle cx="620" cy="250" r="48" fill="#ff9db0" opacity="0.26"/>
-<path d="M340 312 q-10 80 -46 110 h92 q-36 -30 -46 -110 z" fill="#8fa8d8" opacity="0.3"/>
-<path d="M620 312 q10 80 46 110 h-92 q36 -30 46 -110 z" fill="#ff9db0" opacity="0.3"/>
-<!-- 完整的心：两个半圆合起来 -->
-<path d="M480 190 c-14 -20 -52 -8 -52 18 c0 24 32 42 52 58 c20 -16 52 -34 52 -58 c0 -26 -38 -38 -52 -18 z"
-      fill="#ff9db0" opacity="0.34"/>
-<path d="M480 190 c-14 -20 -52 -8 -52 18 c0 24 32 42 52 58" fill="none" stroke="#8fa8d8" stroke-width="2" opacity="0.5"/>
-<path d="M480 190 c14 -20 52 -8 52 18 c0 24 -32 42 -52 58" fill="none" stroke="#ff9db0" stroke-width="2" opacity="0.5"/>
-<!-- 中间的连接不是束缚，是并肩 -->
-<path d="M396 300 Q480 350 564 300" stroke="#ffd89b" stroke-width="2.5" fill="none" opacity="0.45" stroke-dasharray="8 8"/>
-<rect x="0" y="0" width="${BW}" height="${BH}" fill="url(#vg)"/>`
-    };
-  },
-};
 
 /**
- * 生成一张背景或插图
+ * 生成一张背景
  * @param {object} maker (id) => {defs, inner}
  */
 function render(maker, seed = 1) {
@@ -515,4 +377,4 @@ function render(maker, seed = 1) {
   return wrapSvg(BW, BH, inner, defs, 'preserveAspectRatio="xMidYMid slice"');
 }
 
-module.exports = { BW, BH, BACKGROUNDS, ILLUSTRATIONS, render };
+module.exports = { BW, BH, BACKGROUNDS, render };

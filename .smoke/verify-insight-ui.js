@@ -163,7 +163,7 @@ function ck(name, cond, extra) {
       ck('启示正文含核心句',
         info.body.includes('安全感不是别人施舍给你的礼物'), info.body.slice(0, 50));
       ck('有插图', !!info.illoSrc, '缺 img');
-      ck('插图引用正确', !!info.illoSrc && info.illoSrc.includes('selflove'), info.illoSrc);
+      ck('插图引用正确', !!info.illoSrc && info.illoSrc.includes('chapter-'), info.illoSrc);
       ck('插图真的加载成功', info.illoComplete && info.illoW > 0, 'naturalWidth=' + info.illoW);
       ck('有「点击继续」提示', info.hasHint, '');
       ck('启示卡在视口内',

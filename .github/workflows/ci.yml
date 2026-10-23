@@ -280,6 +280,10 @@ jobs:
         working-directory: .smoke
         run: node verify-music-rotation.js
 
+      - name: 章节插画几何自检（63 项）
+        working-directory: .smoke
+        run: node verify-scenes.js
+
       - name: 汇总
         if: always()
         run: |

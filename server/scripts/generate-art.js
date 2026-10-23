@@ -17,23 +17,17 @@ const path = require('path');
 
 const { write } = require('./art/common');
 const { chibiBoy, chibiGirl, MOODS } = require('./art/chibi');
-const { BACKGROUNDS, ILLUSTRATIONS, render } = require('./art/scenes');
+const { BACKGROUNDS, render } = require('./art/scenes');
 
 const IMG_DIR = path.resolve(__dirname, '..', '..', 'client', 'assets', 'img');
 const BG_DIR = path.join(IMG_DIR, 'bg');
 const AVATAR_DIR = path.join(IMG_DIR, 'avatar');
-const ILLU_DIR = path.join(IMG_DIR, 'illu');
 
-[BG_DIR, AVATAR_DIR, ILLU_DIR].forEach((d) => fs.mkdirSync(d, { recursive: true }));
+[BG_DIR, AVATAR_DIR].forEach((d) => fs.mkdirSync(d, { recursive: true }));
 
 console.log('\n生成背景图 →', BG_DIR);
 Object.keys(BACKGROUNDS).forEach((name, i) => {
   write(BG_DIR, name + '.svg', render(BACKGROUNDS[name], i + 1));
-});
-
-console.log('\n生成概念插图 →', ILLU_DIR);
-Object.keys(ILLUSTRATIONS).forEach((name, i) => {
-  write(ILLU_DIR, name + '.svg', render(ILLUSTRATIONS[name], 100 + i));
 });
 
 console.log('\n生成 Q 版立绘 →', AVATAR_DIR);
@@ -51,5 +45,6 @@ for (let stage = 1; stage <= 5; stage++) {
 
 const count = (dir) => fs.readdirSync(dir).filter((f) => f.endsWith('.svg')).length;
 console.log('\n完成。');
-console.log(`  背景 ${count(BG_DIR)} 张 · 插图 ${count(ILLU_DIR)} 张 · 立绘 ${count(AVATAR_DIR)} 张`);
+console.log(`  背景 ${count(BG_DIR)} 张 · 立绘 ${count(AVATAR_DIR)} 张`);
+console.log('  （章节插画在 .smoke/build-scenes.js 里生成，不走这个脚本）');
 console.log('');

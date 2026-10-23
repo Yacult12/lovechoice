@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" role="img" aria-label="第一格 · 初遇：聚会上两人初次对视；角落有人独自看书、有人和朋友聊天">
+<!--
+  第一格 · 初遇
+  聚会上两人初次对视；角落有人独自看书、有人和朋友聊天
+
+  手绘简笔画连环画的一格。描边用 currentColor：
+  放进浅色纸页时是柔和黑线，放进暗色舞台时是淡白线。
+-->
+<g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M56 430 H904" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.16"/>
+  <g opacity="0.85">
+    <path d="M62 250 H166 M62 316 H166" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M62 250 V392 M166 250 V392" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M78 258 h14 v34 h-14 z M100 258 h14 v34 h-14 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M124 258 h14 v34 h-14 z M146 258 h12 v34 h-12 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M80 324 h12 v32 h-12 z M102 324 h12 v32 h-12 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M124 324 h14 v32 h-14 z" fill="currentColor" fill-opacity="0.03"/>
+  </g>
+  <g>
+    <path d="M762 214 h72 a16 16 0 0 1 16 16 v22 a16 16 0 0 1 -16 16 h-30 l-10 12 l-2 -12 h-30 a16 16 0 0 1 -16 -16 v-22 a16 16 0 0 1 16 -16 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M762 214 h72 a16 16 0 0 1 16 16 v22 a16 16 0 0 1 -16 16 h-30 l-10 12 l-2 -12 h-30 a16 16 0 0 1 -16 -16 v-22 a16 16 0 0 1 16 -16 z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(118 430) scale(0.86 1)">
+    <circle cx="0" cy="-158" r="14" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M-13 -165 q13 -13 26 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-18 -108 L-6 -96" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L18 -108 L6 -96" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(806 430) scale(0.86 1)">
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="-156" r="13" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -106 L-14 -76" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L26 -116 L40 -124" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 -124 q7 -3 12 2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(872 430) scale(0.86 1)">
+    <circle cx="0" cy="-158" r="14" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M-13 -165 q13 -13 26 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -104 L-16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L20 -104 L16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(412 430) scale(1 1)">
+    <circle cx="0" cy="-158" r="14" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M-13 -165 q13 -13 26 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-16 -104 L3 -90" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L16 -106 L8 -90" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="5" cy="-90" r="3.4" fill="currentColor" fill-opacity="0.05"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(548 430) scale(1 1)">
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="-156" r="13" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -104 L-16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L20 -104 L16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</g>
+</svg>

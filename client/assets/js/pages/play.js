@@ -28,13 +28,18 @@
     //
     // 这样立绘无论出现还是消失，都不会影响对话区的位置 ——
     // 对话框永远贴在视口底部，不会被顶出去，也不需要滚动。
+    // 背景人物层（.scene-figures）排在最底，z-index 1：
+    // 它是「画面里的远景」，必须在立绘（z-index 3）和对白（z-index 5）下面。
+    // 整层 pointer-events:none —— 不挡点击，
+    // 玩家点它等于点背景，只有按钮和选项能点。
     var bg = el('div.scene-bg');
+    var figures = el('div.scene-figures');
     var stageTop = el('div.stage-top');
     var portraitBox = el('div.portrait');
     var stageViewport = el('div.stage-viewport', portraitBox);
     var dialogueArea = el('div.stage-bottom');
     var gestureTray = el('div.gesture-tray');
-    var stage = el('div#stage', [bg, stageTop, stageViewport, dialogueArea, gestureTray]);
+    var stage = el('div#stage', [bg, figures, stageTop, stageViewport, dialogueArea, gestureTray]);
 
     // stage-host 让 .page 关闭滚动 —— 剧情页是全屏舞台，
 // 立绘出现/消失不应该改变页面高度、更不该要求玩家拖滚动条。
@@ -240,6 +245,46 @@ var page = el('div.page.stage-host', stage);
       return Math.min(5, Math.max(1, n || 1));
     }
 
+    /*
+     * 背景人物层。
+     *
+     * 画面分三层叠在一起（从后往前）：
+     *   .scene-bg      场景底图（渐变 / 实体背景）
+     *   .scene-figures 背景人物（远景插画）  ← 这一层
+     *   .portrait      主角立绘
+     *   .stage-bottom  对白与选项
+     *
+     * 背景人物必须在主角立绘和对白下面 —— 它是「画面里还有别人在生活」，
+     * 不是要抢戏的主角。整层 pointer-events:none，
+     * 玩家点它等于点背景，选项按钮照常点。
+     */
+    var FIGURE_IMG = 'assets/img/scene/chapter-';
+
+    function renderFigures(node) {
+      var no = Math.min(5, Math.max(1, Number((node && node.chapterNo) || chapterNo()) || 1));
+      var url = FIGURE_IMG + no + '.svg';
+
+      if (figures.dataset.chapter === String(no)) return;
+      figures.dataset.chapter = String(no);
+
+      // 换图时先淡出再淡入，跟背景图的处理一致
+      figures.style.transition = 'opacity .45s';
+      figures.style.opacity = '0';
+      setTimeout(function () {
+        UI.mount(figures, el('img.scene-figure', {
+          src: url,
+          alt: '',
+          'aria-hidden': 'true',
+          onerror: function () {
+            // 插画缺失就把这层收掉，绝不留一个破图占位
+            figures.style.opacity = '0';
+            figures.dataset.chapter = '';
+          }
+        }));
+        figures.style.opacity = '1';
+      }, 200);
+    }
+
     // 情绪 → 表情候选
     var MOOD_FILES = {
       high: ['smile', 'smile', 'soft'],
@@ -297,6 +342,9 @@ var page = el('div.page.stage-host', stage);
         }, cur ? 240 : 0);
         bg.dataset.bgKey = key;
       }
+
+      // 背景人物层：按当前章节换插画
+      renderFigures(node);
 
       // 立绘：按说话人决定显示谁
       var speaker = node && node.speaker ? String(node.speaker) : '';
@@ -789,15 +837,30 @@ var page = el('div.page.stage-host', stage);
     // ============================================================
     // 章节过场 / 结局 / 结束
     // ============================================================
+
+    /*
+     * 章节过场卡。
+     *
+     * 用浅色纸页 + 那格连环画 —— 整页翻页的感觉，
+     * 和插画本身的「绘本」气质一致。
+     * 深色遮罩只留一点点底，让纸页像浮在暗底上。
+     */
     function showChapterCard(title, no, done) {
       var seen = Store.chapterSeen(routeCode, slot);
       if (seen.indexOf(Number(no)) !== -1) { done(); return; }
       Store.markChapterSeen(routeCode, slot, no);
 
+      var n = Math.min(5, Math.max(1, Number(no) || 1));
       var card = el('div.chapter-card', el('div.inner', [
-        el('div.no', 'CHAPTER ' + String(no).padStart(2, '0')),
+        el('div.no', 'CHAPTER ' + String(n).padStart(2, '0')),
         el('div.rule'),
         el('div.tt', title || ''),
+        el('div.chapter-illo-wrap', el('img.chapter-illo', {
+          src: 'assets/img/scene/chapter-' + n + '.svg',
+          alt: '',
+          'aria-hidden': 'true',
+          onerror: function () { this.parentNode.style.display = 'none'; }
+        })),
         el('div.tiny.faint.mt-16', '点击继续')
       ]));
       card.addEventListener('click', function () {
@@ -836,7 +899,7 @@ var page = el('div.page.stage-host', stage);
           if (!item) { done(); return; }
 
           var illo = item.illustration
-            ? './assets/img/illu/' + item.illustration + '.svg'
+            ? './assets/img/scene/' + item.illustration + '.svg'
             : null;
 
           var inner = el('div.insight-inner', [

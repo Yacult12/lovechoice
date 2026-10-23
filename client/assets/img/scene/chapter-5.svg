@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" role="img" aria-label="第五格 · 圆满：两个独立小人各守自己的小世界，遥遥温柔相望">
+<!--
+  第五格 · 圆满
+  两个独立小人各守自己的小世界，遥遥温柔相望
+
+  手绘简笔画连环画的一格。描边用 currentColor：
+  放进浅色纸页时是柔和黑线，放进暗色舞台时是淡白线。
+-->
+<g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M56 430 H904" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.16"/>
+  <g>
+    <path d="M168 286 H244 M168 286 V386 M244 286 V386" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M206 386 L194 430 M206 386 L218 430" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M180 300 H232 V368 H180 Z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M180 300 H232 V368 H180 Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g>
+    <path d="M712 388 h52 l-5 30 h-42 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M712 388 h52 l-5 30 h-42 z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M738 388 c0 -18 -8 -27 -15 -32 c9 7 13 16 14 32" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M738 388 c0 -22 8 -32 16 -37 c-7 10 -10 20 -10 37" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(288 430) scale(1 1)">
+    <circle cx="0" cy="-158" r="14" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M-13 -165 q13 -13 26 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -106 L-14 -76" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L26 -116 L40 -124" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 -124 q7 -3 12 2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(372 430) scale(0.82 1)">
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="-156" r="13" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -104 L-16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L20 -104 L16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(660 430) scale(1 1)">
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0 z" fill="currentColor" fill-opacity="0.03"/>
+    <path d="M-16 -152 q0 -24 16 -24 q16 0 16 24 l0 14 q-16 8 -32 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="-156" r="13" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -104 L-16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L20 -104 L16 -74" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+<g transform="translate(800 430) scale(0.82 1)">
+    <circle cx="0" cy="-158" r="14" fill="currentColor" fill-opacity="0.05"/>
+    <path d="M-13 -165 q13 -13 26 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -144 L0 -50" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -132 L-20 -106 L-14 -76" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 -132 L26 -116 L40 -124" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M40 -124 q7 -3 12 2" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <path d="M0 -50 L-11 0 M0 -50 L11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</g>
+</svg>
