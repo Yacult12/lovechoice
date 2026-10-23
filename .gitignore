@@ -37,6 +37,11 @@ config/secrets/
 backup/
 backups/
 data/
+# ⚠️ 例外：server/src/data/ 是源码，不是数据备份。
+#   insights.js（章节启示文案）被后端 /api/story/insights 读取，
+#   一旦漏掉，换台机器克隆出来接口就 500 —— 服务器上已经踩过一次。
+!server/src/data/
+!server/src/data/**
 *.sqlite
 *.sqlite3
 *.db

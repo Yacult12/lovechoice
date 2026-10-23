@@ -79,8 +79,11 @@ check('语法检查排除了 node_modules',
 
 const smokeJsCount = fs.readdirSync(path.join(ROOT, '.smoke'))
   .filter((f) => f.endsWith('.js')).length;
+// 上限跟着实际脚本数走。以前卡 40 是「防止 find 误把目录当文件」那次的产物，
+// 后来补了 verify-scenes / verify-scene-layer / verify-live-* / verify-layer-pixels
+// 等一串验证脚本，早就超了 —— 阈值比现实低，断言就成了摆设。
 check('.smoke 顶层 JS 文件数合理',
-  smokeJsCount > 5 && smokeJsCount < 40, '实际 ' + smokeJsCount);
+  smokeJsCount > 5 && smokeJsCount < 80, '实际 ' + smokeJsCount);
 console.log('    将检查 ' + syntaxTargets.length + ' 个 JS 文件');
 
 // ---------- 3. BOM 实际内容 ----------

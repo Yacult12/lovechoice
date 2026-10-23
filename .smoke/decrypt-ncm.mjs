@@ -105,8 +105,22 @@ function decryptNew(buf) {
   return { audio, meta };
 }
 
-const srcDir = process.argv[2] || 'C:/Users/何树吉/Desktop/音乐';
+/*
+ * 用法：
+ *   node decrypt-ncm.mjs "<源目录>" "<输出目录>"
+ *
+ * 两个参数都不给就报错退出 ——
+ * 素材目录是每个人自己的，放本机绝对路径当默认值毫无意义，
+ * 而且会把路径写死进仓库（换台机器/CI 上就是 ENOENT）。
+ */
+const srcDir = process.argv[2];
 const outDir = process.argv[3] || path.resolve(process.cwd(), 'audio-src');
+
+if (!srcDir) {
+  console.log('用法: node decrypt-ncm.mjs "<存了 .ncm 的目录>" ["<输出目录>"]');
+  console.log('示例: node decrypt-ncm.mjs "D:/Music/音乐"');
+  process.exit(1);
+}
 
 await fs.mkdir(outDir, { recursive: true });
 
