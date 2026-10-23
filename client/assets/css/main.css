@@ -265,6 +265,24 @@ a { color: var(--accent); text-decoration: none; }
  */
 .page.stage-host { overflow: hidden; }
 
+/*
+ * 剧情页的舞台容器。
+ *
+ * play.js 不再往里套 .page（app.js 已经建了一个，
+ * 套两层会让 #stage 的 height:100% 参照到 auto 高度，
+ * 舞台塌成内容高 —— 立绘区 0 高、对白框顶到屏幕上沿）。
+ *
+ * height:100% 参照外层 .page ——
+ * 它是 #app 里的 flex 项，flex 布局后高度是「确定值」，
+ * 所以百分比能正常解析（这是关键，写成 flex:1 反而没用：
+ * .page 是 display:block，flex 属性对它不生效）。
+ */
+.stage-host {
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
 .scene-bg {
   position: absolute; inset: 0;
   background-size: cover; background-position: center;
@@ -287,14 +305,14 @@ a { color: var(--accent); text-decoration: none; }
  *   2. pointer-events: none —— 整层不接收点击。
  *      玩家点画面空白处应该推进对话，不能被这层拦下；
  *      选项按钮在别的层上，照常点。
- *   3. 描边用 currentColor，插画本身不带背景色。
- *      这里的 color 决定线条是深是浅：暗底上给淡白线，
- *      浅色纸页上给近黑的线 —— 同一份文件适配两种底色。
+ *   3. 用 mask-image 着色，不用 <img>。
+ *      SVG 用 <img> 加载是独立文档，currentColor 继承不到宿主的 color，
+ *      会解析成黑色 —— 黑线画在暗色舞台上等于隐形。
+ *      mask-image 让 SVG 只负责「哪里有笔触」，颜色由 background-color 给。
  */
 .scene-figures {
   position: absolute; inset: 0; z-index: 1;
   pointer-events: none;
-  color: rgba(255, 255, 255, 0.42);
   transition: opacity .45s var(--ease);
   overflow: hidden;
 }
@@ -303,11 +321,14 @@ a { color: var(--accent); text-decoration: none; }
   left: 50%; bottom: 0;
   transform: translateX(-50%);
   width: min(118%, 1500px);
-  height: auto;
-  opacity: .85;
+  height: 88%;
+  /* 线条颜色：暗底上的淡白 */
+  background-color: rgba(255, 255, 255, 0.46);
   /* 顶部再压一点，让人物像站在远处 */
-  mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
+  -webkit-mask-position: bottom center;
+  mask-position: bottom center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .stage-top {
@@ -688,8 +709,10 @@ a { color: var(--accent); text-decoration: none; }
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: contain;
-  /* 插画用 currentColor 描边，纸页上给近黑的柔和线条 */
-  color: #33322e;
+  /*
+   * 插画用 <img> 加载 —— SVG 是独立文档，currentColor 继承不到这里，
+   * 会解析成黑色。这正好是纸页上要的效果：柔和黑线。
+   */
 }
 
 /* ============================================================
@@ -726,8 +749,10 @@ a { color: var(--accent); text-decoration: none; }
   max-height: 34dvh;
   object-fit: contain;
   margin-bottom: 24px;
-  /* 插画用 currentColor 描边，纸页上给近黑的柔和线条 */
-  color: #33322e;
+  /*
+   * 同样用 <img> 加载：currentColor 解析成黑色，
+   * 正好是浅色纸页上想要的柔和黑线。
+   */
 }
 
 /* 标题与正文 */

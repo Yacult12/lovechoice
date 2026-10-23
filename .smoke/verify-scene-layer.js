@@ -74,9 +74,11 @@ function ck(name, cond, extra) {
         pointerEvents: cs.pointerEvents,
         position: cs.position,
         hasImg: !!fig,
-        imgSrc: fig ? fig.getAttribute('src') : null,
-        imgComplete: fig ? (fig.complete && fig.naturalWidth > 0) : false,
-        imgW: fig ? fig.naturalWidth : 0
+        // 现在是遮罩块，颜色由 background-color 给
+        maskUrl: fig ? (getComputedStyle(fig).maskImage || getComputedStyle(fig).webkitMaskImage) : null,
+        bgColor: fig ? getComputedStyle(fig).backgroundColor : null,
+        imgW: fig ? Math.round(fig.getBoundingClientRect().width) : 0,
+        imgH: fig ? Math.round(fig.getBoundingClientRect().height) : 0
       };
     });
 
@@ -152,8 +154,12 @@ function ck(name, cond, extra) {
 
     // ---------- 5. 插画本身 ----------
     ck('层里有插画', layer.hasImg);
-    ck('插画指向连环画那五格', !!layer.imgSrc && /chapter-\d\.svg$/.test(layer.imgSrc), layer.imgSrc);
-    ck('插画真的加载出来了', layer.imgComplete && layer.imgW > 0, 'naturalWidth=' + layer.imgW);
+    ck('用遮罩着色（SVG 独立文档，currentColor 继承不到）',
+      !!layer.maskUrl && /chapter-\d\.svg/.test(layer.maskUrl), layer.maskUrl);
+    ck('遮罩块有实际尺寸', layer.imgW > 300 && layer.imgH > 150,
+      layer.imgW + 'x' + layer.imgH);
+    ck('线条颜色不是黑色（暗底上要看得见）',
+      !!layer.bgColor && !/rgb\(0, 0, 0\)/.test(layer.bgColor), layer.bgColor);
 
     // ---------- 6. 文字没被压住 ----------
     const textOk = await page.evaluate(() => {

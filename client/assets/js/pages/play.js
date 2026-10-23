@@ -41,9 +41,20 @@
     var gestureTray = el('div.gesture-tray');
     var stage = el('div#stage', [bg, figures, stageTop, stageViewport, dialogueArea, gestureTray]);
 
-    // stage-host 让 .page 关闭滚动 —— 剧情页是全屏舞台，
-// 立绘出现/消失不应该改变页面高度、更不该要求玩家拖滚动条。
-var page = el('div.page.stage-host', stage);
+    /*
+     * 剧情页直接往 root 里塞舞台，不再套一层 .page。
+     *
+     * ⚠️ 这里原来多包了一层 .page，app.js 也建了一个 .page ——
+     *    于是变成 .page > .page > #stage。
+     *    外层 .page 的高度靠 flex 撑出来，但内层 .page 是 height:auto，
+     *    于是 #stage 的 height:100% 参照一个 auto 高度解析 → 变成「内容高」，
+     *    整个舞台塌成 232px：立绘区高度 0，对白框贴在屏幕顶部，
+     *    下面 668px 全是空白。
+     *
+     *    .page.stage-host 那个类现在没用了（外层 .page 已经是唯一的），
+     *    但保留 class 不影响 —— 真正起作用的是不再嵌套。
+     */
+    var page = el('div.stage-host', stage);
     root.innerHTML = '';
     root.appendChild(page);
 
@@ -260,6 +271,33 @@ var page = el('div.page.stage-host', stage);
      */
     var FIGURE_IMG = 'assets/img/scene/chapter-';
 
+    /**
+     * 造一个用遮罩着色的插画块。
+     *
+     * ⚠️ 为什么不用 <img src="xx.svg">：
+     *   SVG 用 <img> 加载时是**独立文档**，currentColor 不会继承
+     *   宿主页面的 color —— 它会解析成 SVG 自己的默认值（黑）。
+     *   黑线画在暗色舞台上等于隐形（实测峰值灰度只有 22/255）。
+     *
+     *   用 mask-image 就对了：SVG 负责「哪里有笔触」的形状，
+     *   颜色由 CSS 的 background-color 给。
+     *   同一份文件因此能同时用于浅色纸页和暗色舞台。
+     */
+    function figureBlock(url, cls) {
+      return el('div.' + cls, {
+        role: 'presentation',
+        'aria-hidden': 'true',
+        style: {
+          webkitMaskImage: 'url(' + url + ')',
+          maskImage: 'url(' + url + ')',
+          webkitMaskSize: '100% 100%',
+          maskSize: '100% 100%',
+          webkitMaskRepeat: 'no-repeat',
+          maskRepeat: 'no-repeat'
+        }
+      });
+    }
+
     function renderFigures(node) {
       var no = Math.min(5, Math.max(1, Number((node && node.chapterNo) || chapterNo()) || 1));
       var url = FIGURE_IMG + no + '.svg';
@@ -271,16 +309,9 @@ var page = el('div.page.stage-host', stage);
       figures.style.transition = 'opacity .45s';
       figures.style.opacity = '0';
       setTimeout(function () {
-        UI.mount(figures, el('img.scene-figure', {
-          src: url,
-          alt: '',
-          'aria-hidden': 'true',
-          onerror: function () {
-            // 插画缺失就把这层收掉，绝不留一个破图占位
-            figures.style.opacity = '0';
-            figures.dataset.chapter = '';
-          }
-        }));
+        var block = figureBlock(url, 'scene-figure');
+        // 遮罩文件读不出来时这层就是空的，不会留破图标
+        UI.mount(figures, block);
         figures.style.opacity = '1';
       }, 200);
     }
